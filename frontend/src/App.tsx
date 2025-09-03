@@ -16,7 +16,8 @@ function App() {
   useEffect(() => {
     const fetchApiStatus = async () => {
       try {
-        const response = await fetch('http://localhost:8000/');
+        const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+        const response = await fetch(`${apiUrl}/`);
         if (!response.ok) {
           throw new Error('Failed to fetch API status');
         }
@@ -65,7 +66,7 @@ function App() {
                     <h3 className="text-red-800 font-semibold">Connection Error</h3>
                     <p className="text-red-600">{error}</p>
                     <p className="text-sm text-red-500 mt-2">
-                      Make sure the backend server is running on http://localhost:8000
+                      Make sure the backend server is running and accessible
                     </p>
                   </div>
                 </div>
