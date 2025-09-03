@@ -3,8 +3,9 @@ services:
     name: findland-africa-backend
     env: python
     plan: free
-    buildCommand: pip install -r backend/requirements-minimal.txt
-    startCommand: cd backend && python main.py
+    rootDir: backend
+    buildCommand: pip install -r requirements-minimal.txt
+    startCommand: python main.py
     envVars:
       - key: DATABASE_URL
         sync: false
