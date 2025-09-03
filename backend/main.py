@@ -5,8 +5,16 @@ from datetime import datetime
 import os
 from dotenv import load_dotenv
 
+# Import our app modules
+from app.database import engine
+from app.models import user
+from app.api.v1 import auth
+
 # Load environment variables
 load_dotenv()
+
+# Create database tables
+user.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="FindLand Africa API",
@@ -45,6 +53,9 @@ async def health_check():
         "timestamp": datetime.now().isoformat()
     }
 
+# Include API routers
+app.include_router(auth.router, prefix="/api/v1")
+
 @app.get("/api/v1/status")
 async def api_status():
     """API status endpoint"""
@@ -52,7 +63,7 @@ async def api_status():
         "api_version": "v1",
         "status": "operational",
         "features": {
-            "auth": "planned",
+            "auth": "implemented",
             "properties": "planned", 
             "escrow": "planned",
             "chat": "planned"
