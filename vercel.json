@@ -12,7 +12,7 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "https://findland-africa-backend.onrender.com/api/$1"
+      "dest": "https://findland-africa.onrender.com/api/$1"
     },
     {
       "src": "/(.*)",
@@ -20,6 +20,6 @@
     }
   ],
   "env": {
-    "REACT_APP_API_URL": "https://findland-africa-backend.onrender.com"
+    "REACT_APP_API_URL": "https://findland-africa.onrender.com"
   }
 }
