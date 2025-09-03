@@ -16,12 +16,7 @@ Trusted digital platform connecting property buyers, developers, and investors w
 2. **Trust Building** - Single bad actor could kill brand reputation
 3. **Financial Risk** - Conservative lending policy for MVP success
 
-## 🛠️ Quick Start (Hello World)
-
-### Prerequisites
-- Python 3.8+
-- Node.js 16+
-- Git
+## 🛠️ Quick Start
 
 ### Development Setup
 ```bash
@@ -37,6 +32,12 @@ This will start:
 - **Backend:** http://localhost:8000 (FastAPI)
 - **Frontend:** http://localhost:3000 (React)
 - **API Docs:** http://localhost:8000/docs
+
+### Production Deployment
+- **Frontend:** [Vercel](https://vercel.com) - React app hosting
+- **Backend:** [Render](https://render.com) - FastAPI hosting  
+- **Database:** [Neon](https://neon.tech) - PostgreSQL hosting
+- **Guide:** See [Deployment Guide](./docs/DeploymentGuide.md)
 
 ### Manual Setup
 ```bash
@@ -54,6 +55,7 @@ npm start
 ```
 
 ## 📌 Documentation
+- [**Deployment Guide**](./docs/DeploymentGuide.md) - Production deployment with Vercel, Render, and Neon
 - [**API & Database Blueprint**](./docs/APIDatabaseBlueprint.md) - Technical specifications and database schema
 - [**MVP Cost Analysis**](./docs/MVPCostAnalysis.md) - Detailed budget breakdown and optimization
 - [**Risks & Mitigation**](./docs/Risks.md) - Critical watch-out areas and mitigation strategies

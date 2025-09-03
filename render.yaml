@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: findland-africa-backend
+    env: python
+    plan: free
+    buildCommand: pip install -r backend/requirements-minimal.txt
+    startCommand: cd backend && python main.py
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ENVIRONMENT
+        value: production
+      - key: CORS_ORIGINS
+        value: https://findland-africa.vercel.app
+    healthCheckPath: /health
+    autoDeploy: true
