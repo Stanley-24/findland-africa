@@ -2,6 +2,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from datetime import datetime
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 app = FastAPI(
     title="FindLand Africa API",
@@ -10,9 +15,10 @@ app = FastAPI(
 )
 
 # CORS middleware for frontend integration
+cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure properly for production
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -21,11 +27,13 @@ app.add_middleware(
 @app.get("/")
 async def root():
     """Hello World endpoint for MVP testing"""
+    environment = os.getenv("ENVIRONMENT", "development")
     return {
         "message": "FindLand Africa API is running! 🏗️",
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
-        "version": "1.0.0"
+        "version": "1.0.0",
+        "environment": environment
     }
 
 @app.get("/health")
