@@ -32,21 +32,51 @@
 | Default rate | <5% |
 | Active borrowers | 200 |
 | Diaspora investors onboarded | 50–100 |
+| **Monthly operational costs** | **$200-500** |
+| **Cost per loan transaction** | **<2% of loan value** |
 
 ---
 
 ## 5. Steps
 
-1. MVP: verified listings + digital contracts + escrow + in-app communication.  
-2. Conduct interviews with cooperatives, small traders, MFIs.  
-3. Collect feedback → iterate → scale to full Lagos market.  
-4. Monitor risks, defaults, and regulatory compliance.  
+1. **MVP Launch:** verified listings + digital contracts + escrow + in-app communication.  
+2. **Market Research:** Conduct interviews with cooperatives, small traders, MFIs.  
+3. **Iteration:** Collect feedback → iterate → scale to full Lagos market.  
+4. **Risk Monitoring:** Monitor risks, defaults, and regulatory compliance.
+5. **Cost Management:** Track infrastructure costs, optimize based on usage patterns.
 
 ---
 
-## 6. Lessons & Next Phase
+## 6. Cost Management Strategy
+
+### Budget Allocation
+- **Infrastructure (AWS):** $140-415/month
+  - Compute: $20-50/month (EC2/Fargate)
+  - Database: $15-40/month (RDS PostgreSQL)
+  - Communication: $100-300/month (Twilio)
+  - Storage & Other: <$20/month (S3, Route53, CloudFront)
+- **Third-Party APIs:** $50-150/month (KYC, legal software)
+- **Total Monthly Budget:** $200-500
+
+### Cost Monitoring
+- Real-time AWS billing alerts at 80% of budget
+- Twilio usage tracking and spike alerts
+- Monthly cost review and optimization
+- Cost per transaction analysis
+
+### Risk Mitigation
+- Start with minimal viable infrastructure
+- Implement auto-scaling for cost efficiency
+- Feature gating during pilot to control communication costs
+- Conservative lending policy to minimize defaults  
+
+---
+
+## 7. Lessons & Next Phase
 
 - Physical verification offices → build trust  
 - Smooth USD/EUR → NGN conversion for diaspora investors  
 - Expand to Abuja, Port Harcourt → eventually pan-African  
+- **Cost Optimization:** Scale infrastructure costs with revenue growth
+- **Risk Management:** Maintain <5% default rate through conservative lending
 

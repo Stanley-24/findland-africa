@@ -43,10 +43,25 @@ Build a trusted digital platform connecting property buyers, developers, and inv
 
 ## 5. Cost Structure
 
+### MVP Phase (Monthly: $200-500)
+- **Infrastructure (AWS):** $140-415/month
+  - Compute (EC2/Fargate): $20-50/month
+  - Database (RDS PostgreSQL): $15-40/month  
+  - Communication (Twilio): $100-300/month
+  - Storage & Other (S3, Route53, CloudFront): <$20/month
+- **Third-Party APIs:** $50-150/month
+  - KYC/KYB verification services
+  - Legal & compliance software
+  - Payment gateway integration
 - **Tech Development & Maintenance:** Backend, frontend, database, communication layer  
 - **Legal Compliance:** Title verification, contract validation, KYC  
 - **Marketing & Trust-Building:** Influencers, social media, community engagement  
 - **Operational Costs:** Customer support, dispute resolution, risk monitoring
+
+### Scaling Considerations
+- **Cost per Transaction:** Target <2% of loan value
+- **Break-even Analysis:** Infrastructure costs should be covered by transaction fees
+- **Revenue Alignment:** As loan volume increases, operational costs scale proportionally
 
 ---
 
@@ -89,13 +104,22 @@ Build a trusted digital platform connecting property buyers, developers, and inv
 | Operational | Loan defaults, cashflow mismatch | Risk pool, pilot with smaller loan sizes, align repayments to project schedules |
 | Technical | Scalability, data security | Modular architecture, cloud hosting, encrypted storage |
 | Communication | Data privacy, fraud in chat/media | End-to-end encryption, AI fraud monitoring, call/media audit trail |
+| **Cost & Infrastructure** | **AWS cost overruns, Twilio spikes** | **Real-time monitoring, auto-scaling, feature gating** |
+| **Financial** | **Revenue vs cost mismatch in early stages** | **Conservative projections, break-even tracking** |
+
+### Critical MVP Watch-Outs
+1. **Regulatory Hurdles:** License approvals are go/no-go factor
+2. **Trust Deficit:** Single bad actor could kill brand reputation  
+3. **Financial Risk:** Few defaults can significantly impact small user base
 
 ---
 
 ## 10. Next Steps
 
-1. Confirm pilot developers and investors in Lagos  
-2. Finalize MVP features (verified listings, contract automation, escrow, communication)  
-3. Build early-stage community for trust-building  
-4. Collect data → iterate business model → scale  
+1. **Regulatory Setup:** Confirm pilot developers and investors in Lagos  
+2. **MVP Development:** Finalize MVP features (verified listings, contract automation, escrow, communication)  
+3. **Trust Building:** Build early-stage community for trust-building  
+4. **Cost Management:** Set up AWS cost monitoring and budget alerts
+5. **Risk Mitigation:** Implement conservative lending policies and manual verification for initial users
+6. **Data Collection:** Collect data → iterate business model → scale  
 
