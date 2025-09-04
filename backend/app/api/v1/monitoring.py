@@ -227,7 +227,7 @@ def get_budget_status(
     """Get current budget status (admin only)"""
     if current_user.role not in ["admin"]:
         raise HTTPException(
-            status_code=http_http_status.HTTP_403_FORBIDDEN,
+            status_code=http_status.HTTP_403_FORBIDDEN,
             detail="Only admins can view budget status"
         )
     
