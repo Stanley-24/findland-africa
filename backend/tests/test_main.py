@@ -1,7 +1,8 @@
 import pytest
-from fastapi.testclient import TestClient
+from starlette.testclient import TestClient
 from main import app
 
+# Initialize the test client
 client = TestClient(app)
 
 def test_root_endpoint():
