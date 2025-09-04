@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status as http_status, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime, timedelta
@@ -16,7 +16,7 @@ from app.auth.dependencies import get_current_user
 
 router = APIRouter(prefix="/monitoring", tags=["monitoring"])
 
-@router.post("/cost-metrics", response_model=CostMetricSchema, status_code=status.HTTP_201_CREATED)
+@router.post("/cost-metrics", response_model=CostMetricSchema, status_code=http_status.HTTP_201_CREATED)
 def create_cost_metric(
     metric: CostMetricCreate,
     current_user: User = Depends(get_current_user),
@@ -25,7 +25,7 @@ def create_cost_metric(
     """Create a new cost metric (admin only)"""
     if current_user.role not in ["admin"]:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=http_status.HTTP_403_FORBIDDEN,
             detail="Only admins can create cost metrics"
         )
     
@@ -60,7 +60,7 @@ def list_cost_metrics(
     """List cost metrics (admin only)"""
     if current_user.role not in ["admin"]:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=http_status.HTTP_403_FORBIDDEN,
             detail="Only admins can view cost metrics"
         )
     
@@ -91,7 +91,7 @@ def get_cost_summary(
     """Get cost summary for a period (admin only)"""
     if current_user.role not in ["admin"]:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=http_status.HTTP_403_FORBIDDEN,
             detail="Only admins can view cost summaries"
         )
     
@@ -138,7 +138,7 @@ def get_cost_summary(
         alerts_triggered=alerts_triggered
     )
 
-@router.post("/budget-alerts", response_model=BudgetAlertSchema, status_code=status.HTTP_201_CREATED)
+@router.post("/budget-alerts", response_model=BudgetAlertSchema, status_code=http_status.HTTP_201_CREATED)
 def create_budget_alert(
     alert: BudgetAlertCreate,
     current_user: User = Depends(get_current_user),
@@ -147,7 +147,7 @@ def create_budget_alert(
     """Create a new budget alert (admin only)"""
     if current_user.role not in ["admin"]:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=http_status.HTTP_403_FORBIDDEN,
             detail="Only admins can create budget alerts"
         )
     
@@ -174,7 +174,7 @@ def list_budget_alerts(
     """List budget alerts (admin only)"""
     if current_user.role not in ["admin"]:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=http_status.HTTP_403_FORBIDDEN,
             detail="Only admins can view budget alerts"
         )
     
@@ -197,7 +197,7 @@ def update_budget_alert(
     """Update a budget alert (admin only)"""
     if current_user.role not in ["admin"]:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=http_status.HTTP_403_FORBIDDEN,
             detail="Only admins can update budget alerts"
         )
     
@@ -205,7 +205,7 @@ def update_budget_alert(
     
     if not alert:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=http_status.HTTP_404_NOT_FOUND,
             detail="Budget alert not found"
         )
     
@@ -227,7 +227,7 @@ def get_budget_status(
     """Get current budget status (admin only)"""
     if current_user.role not in ["admin"]:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=http_http_status.HTTP_403_FORBIDDEN,
             detail="Only admins can view budget status"
         )
     
