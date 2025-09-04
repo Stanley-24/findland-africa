@@ -32,6 +32,14 @@ class ChatRoomWithDetails(ChatRoom):
     participants: List['ChatParticipant'] = []
     message_count: int = 0
     last_message: Optional['ChatMessage'] = None
+    # Property details for display
+    property_title: Optional[str] = None
+    property_location: Optional[str] = None
+    agent_name: Optional[str] = None
+    agent_rating: Optional[float] = None
+    # User avatar information
+    agent_avatar: Optional[str] = None
+    last_message_sender_avatar: Optional[str] = None
 
 class ChatParticipantBase(BaseModel):
     role: str = Field(default="member", max_length=50)
@@ -63,6 +71,10 @@ class ChatMessageBase(BaseModel):
 
 class ChatMessageCreate(ChatMessageBase):
     room_id: str
+
+class ChatMessageSend(ChatMessageBase):
+    """Schema for sending messages (without room_id since it comes from path)"""
+    pass
 
 class ChatMessageUpdate(BaseModel):
     content: str = Field(..., min_length=1, max_length=5000)
