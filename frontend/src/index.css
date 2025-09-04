@@ -60,3 +60,29 @@ body {
 .btn-secondary {
   @apply bg-white hover:bg-gray-50 text-primary-blue border border-primary-blue font-medium px-6 py-3 rounded-lg transition-colors;
 }
+
+/* Moving horizontal cards animation */
+@keyframes scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-scroll {
+  animation: scroll 30s linear infinite;
+}
+
+.animate-scroll:hover {
+  animation-play-state: paused;
+}
+
+/* Line clamp utilities */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
