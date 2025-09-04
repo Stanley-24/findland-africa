@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import NotificationBadge from './NotificationBadge';
 
 const Header: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -9,7 +10,7 @@ const Header: React.FC = () => {
 
   useEffect(() => {
     // Check if user is authenticated
-    const token = localStorage.getItem('auth_token');
+    const token = localStorage.getItem('token');
     if (token) {
       setIsAuthenticated(true);
       // You can decode the JWT token to get user info or make an API call
@@ -18,12 +19,9 @@ const Header: React.FC = () => {
     }
   }, []);
 
-  const handleLogin = () => {
-    navigate('/login');
-  };
 
   const handleLogout = () => {
-    localStorage.removeItem('auth_token');
+    localStorage.removeItem('token');
     setIsAuthenticated(false);
     setUser(null);
     navigate('/');
@@ -106,6 +104,7 @@ const Header: React.FC = () => {
                 <span className="text-gray-700 text-sm">
                   Welcome, {user?.name || 'User'}
                 </span>
+                <NotificationBadge />
                 <Link 
                   to="/dashboard" 
                   className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors"
@@ -195,6 +194,9 @@ const Header: React.FC = () => {
                     <span className="text-gray-700 block px-3 py-2 text-base font-medium">
                       Welcome, {user?.name || 'User'}
                     </span>
+                    <div className="px-3 py-2">
+                      <NotificationBadge />
+                    </div>
                     <Link 
                       to="/dashboard" 
                       className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium"

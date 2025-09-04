@@ -4,6 +4,7 @@ import axios from 'axios';
 
 interface Property {
   id: string;
+  owner_id: string;
   title: string;
   description: string;
   type: string;
@@ -113,6 +114,62 @@ const PropertyDetail: React.FC<PropertyDetailProps> = ({ apiUrl }) => {
 
   const handleChat = () => {
     setShowChatModal(true);
+  };
+
+  const handleStartChat = async () => {
+    if (!property) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+
+      // First, try to find existing chat room for this property
+      const chatRoomsResponse = await fetch(`${apiUrl}/api/v1/chat/rooms`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (chatRoomsResponse.ok) {
+        const chatRooms = await chatRoomsResponse.json();
+        const existingRoom = chatRooms.find((room: any) => room.property_id === property.id);
+        
+        if (existingRoom) {
+          // Navigate to existing chat room
+          navigate(`/chat/${existingRoom.id}`);
+          return;
+        }
+      }
+
+      // If no existing room, create a new one
+      const createResponse = await fetch(`${apiUrl}/api/v1/chat/rooms`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: `Chat about ${property.title}`,
+          room_type: 'property',
+          property_id: property.id,
+          participant_ids: [property.owner_id] // Add property owner as participant
+        }),
+      });
+
+      if (createResponse.ok) {
+        const newRoom = await createResponse.json();
+        navigate(`/chat/${newRoom.id}`);
+      } else {
+        console.error('Failed to create chat room');
+        alert('Failed to start chat. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error starting chat:', error);
+      alert('Failed to start chat. Please try again.');
+    }
   };
 
   const nextImage = () => {
@@ -472,9 +529,9 @@ const PropertyDetail: React.FC<PropertyDetailProps> = ({ apiUrl }) => {
                 Cancel
               </button>
               <button
-                onClick={() => {
+                onClick={async () => {
                   setShowChatModal(false);
-                  navigate(`/chat/${property.id}`);
+                  await handleStartChat();
                 }}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
               >

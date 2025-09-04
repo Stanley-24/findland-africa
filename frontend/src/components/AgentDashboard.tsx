@@ -39,17 +39,12 @@ const AgentDashboard: React.FC<AgentDashboardProps> = ({ user, apiUrl, onLogout 
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showAddProperty, setShowAddProperty] = useState(false);
   const [activeTab, setActiveTab] = useState<'my-properties' | 'all-properties'>('my-properties');
 
-  useEffect(() => {
-    fetchProperties();
-  }, [activeTab]);
-
-  const fetchProperties = async () => {
+  const fetchProperties = React.useCallback(async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('token');
       
       // For agents, we'll fetch properties they manage (my-properties) or all properties (all-properties)
       const endpoint = activeTab === 'my-properties' 
@@ -75,7 +70,11 @@ const AgentDashboard: React.FC<AgentDashboardProps> = ({ user, apiUrl, onLogout 
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeTab, apiUrl]);
+
+  useEffect(() => {
+    fetchProperties();
+  }, [fetchProperties]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-NG', {
@@ -162,7 +161,7 @@ const AgentDashboard: React.FC<AgentDashboardProps> = ({ user, apiUrl, onLogout 
               </p>
             </div>
             <button
-              onClick={() => setShowAddProperty(true)}
+              onClick={() => {/* TODO: Implement add property modal */}}
               className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center"
             >
               <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -301,7 +300,7 @@ const AgentDashboard: React.FC<AgentDashboardProps> = ({ user, apiUrl, onLogout 
             </p>
             {activeTab === 'my-properties' && (
               <button
-                onClick={() => setShowAddProperty(true)}
+                onClick={() => {/* TODO: Implement add property modal */}}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
               >
                 Add Property for Client

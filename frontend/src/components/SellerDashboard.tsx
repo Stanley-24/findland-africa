@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 interface User {
   id: string;
@@ -34,18 +34,17 @@ interface SellerDashboardProps {
 }
 
 const SellerDashboard: React.FC<SellerDashboardProps> = ({ user, apiUrl, onLogout }) => {
+  const navigate = useNavigate();
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showAddProperty, setShowAddProperty] = useState(false);
-
-  useEffect(() => {
-    fetchProperties();
-  }, []);
-
-  const fetchProperties = async () => {
+  const [activeTab, setActiveTab] = useState('properties');
+  const [chatRooms, setChatRooms] = useState<any[]>([]);
+  const [applications, setApplications] = useState<any[]>([]);
+  const [analytics, setAnalytics] = useState<any>(null);
+  const fetchProperties = React.useCallback(async () => {
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('token');
       const response = await fetch(`${apiUrl}/api/v1/properties/my-properties`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -65,7 +64,83 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ user, apiUrl, onLogou
     } finally {
       setLoading(false);
     }
+  }, [apiUrl]);
+
+  const fetchChatRooms = React.useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${apiUrl}/api/v1/chat/rooms`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setChatRooms(data);
+      }
+    } catch (err) {
+      console.error('Error fetching chat rooms:', err);
+    }
+  }, [apiUrl]);
+
+  const fetchApplications = React.useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${apiUrl}/api/v1/escrow/my-applications`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setApplications(data);
+      }
+    } catch (err) {
+      console.error('Error fetching applications:', err);
+    }
+  }, [apiUrl]);
+
+  const fetchAnalytics = React.useCallback(async () => {
+    try {
+      // Mock analytics data for now
+      const mockAnalytics = {
+        totalViews: 1250,
+        totalInquiries: 45,
+        conversionRate: 3.6,
+        avgResponseTime: '2.5 hours',
+        topPerformingProperty: properties[0]?.title || 'No properties yet',
+        monthlyRevenue: 15000000,
+        pendingApplications: applications.length,
+        activeChats: chatRooms.length
+      };
+      setAnalytics(mockAnalytics);
+    } catch (err) {
+      console.error('Error fetching analytics:', err);
+    }
+  }, [properties, applications, chatRooms]);
+
+  useEffect(() => {
+    fetchProperties();
+    fetchChatRooms();
+    fetchApplications();
+  }, [fetchProperties, fetchChatRooms, fetchApplications]);
+
+  useEffect(() => {
+    if (activeTab === 'analytics') {
+      fetchAnalytics();
+    }
+  }, [activeTab, fetchAnalytics]);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
   };
+
+  const handleChatClick = (chatRoomId: string) => {
+    navigate(`/chat/${chatRoomId}`);
+  };
+
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-NG', {
@@ -74,6 +149,14 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ user, apiUrl, onLogou
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(price);
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
   };
 
   const getPropertyTypeColor = (type: string) => {
@@ -95,13 +178,19 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ user, apiUrl, onLogou
     }
   };
 
+  const handleEditProperty = (propertyId: string) => {
+    // TODO: Implement edit property functionality
+    // For now, navigate to property detail page where edit can be implemented
+    navigate(`/property/${propertyId}?edit=true`);
+  };
+
   const handleDeleteProperty = async (propertyId: string) => {
     if (!window.confirm('Are you sure you want to delete this property?')) {
       return;
     }
 
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('token');
       const response = await fetch(`${apiUrl}/api/v1/properties/${propertyId}`, {
         method: 'DELETE',
         headers: {
@@ -166,25 +255,76 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ user, apiUrl, onLogou
         <div className="mb-8">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">My Properties</h1>
+              <h1 className="text-3xl font-bold text-gray-900">Seller Dashboard</h1>
               <p className="text-gray-600 mt-2">
-                Manage your property listings and track their performance
+                Manage your properties, applications, and client communications
               </p>
             </div>
-            <button
-              onClick={() => setShowAddProperty(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center"
-            >
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              Add Property
-            </button>
+            {activeTab === 'properties' && (
+              <button
+                onClick={() => {/* TODO: Implement add property modal */}}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center"
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                Add Property
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        {/* Navigation Tabs */}
+        <div className="mb-8">
+          <nav className="flex space-x-8">
+            <button
+              onClick={() => handleTabChange('properties')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'properties'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Properties ({properties.length})
+            </button>
+            <button
+              onClick={() => handleTabChange('applications')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'applications'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Loan Applications ({applications.length})
+            </button>
+            <button
+              onClick={() => handleTabChange('chats')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'chats'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Client Chats ({chatRooms.length})
+            </button>
+            <button
+              onClick={() => handleTabChange('analytics')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'analytics'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Analytics
+            </button>
+          </nav>
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === 'properties' && (
+          <>
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
               <div className="p-2 bg-blue-100 rounded-lg">
@@ -277,7 +417,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ user, apiUrl, onLogou
               Start by adding your first property listing to reach potential buyers and renters.
             </p>
             <button
-              onClick={() => setShowAddProperty(true)}
+              onClick={() => {/* TODO: Implement add property modal */}}
               className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
             >
               Add Your First Property
@@ -330,12 +470,15 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ user, apiUrl, onLogou
                       </div>
                       <div className="flex space-x-2">
                         <Link
-                          to={`/properties/${property.id}`}
+                          to={`/property/${property.id}`}
                           className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
                         >
                           View
                         </Link>
-                        <button className="bg-green-100 hover:bg-green-200 text-green-700 px-3 py-2 rounded-lg text-sm font-medium transition-colors">
+                        <button 
+                          onClick={() => handleEditProperty(property.id)}
+                          className="bg-green-100 hover:bg-green-200 text-green-700 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                        >
                           Edit
                         </button>
                         <button
@@ -350,6 +493,182 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ user, apiUrl, onLogou
                 </div>
               ))}
             </div>
+          </div>
+        )}
+          </>
+        )}
+
+        {/* Applications Tab */}
+        {activeTab === 'applications' && (
+          <div>
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">Loan Applications</h2>
+              <p className="text-gray-600 mt-1">Manage your bridging loan applications</p>
+            </div>
+
+            {applications.length === 0 ? (
+              <div className="bg-white rounded-lg shadow p-8 text-center">
+                <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No Applications Yet</h3>
+                <p className="text-gray-500 mb-4">You haven't applied for any bridging loans yet.</p>
+                <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+                  Apply for Loan
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {applications.map((application) => (
+                  <div key={application.id} className="bg-white rounded-lg shadow p-6">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">{application.property_title}</h3>
+                        <p className="text-gray-600">{application.property_location}</p>
+                        <p className="text-sm text-gray-500 mt-1">Amount: {formatPrice(application.loan_amount)}</p>
+                      </div>
+                      <div className="text-right">
+                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                          application.status === 'approved' ? 'bg-green-100 text-green-800' :
+                          application.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {application.status.charAt(0).toUpperCase() + application.status.slice(1)}
+                        </span>
+                        <p className="text-sm text-gray-500 mt-1">{formatDate(application.created_at)}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Chats Tab */}
+        {activeTab === 'chats' && (
+          <div>
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">Client Communications</h2>
+              <p className="text-gray-600 mt-1">Chat with potential buyers and clients</p>
+            </div>
+
+            {chatRooms.length === 0 ? (
+              <div className="bg-white rounded-lg shadow p-8 text-center">
+                <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No Conversations Yet</h3>
+                <p className="text-gray-500">Start conversations with potential buyers about your properties.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {chatRooms.map((chat) => (
+                  <div 
+                    key={chat.id} 
+                    onClick={() => handleChatClick(chat.id)}
+                    className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow cursor-pointer"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                        <span className="text-blue-600 font-bold text-lg">
+                          {chat.last_message_sender_avatar || 'U'}
+                        </span>
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-lg font-semibold text-gray-900">{chat.property_title}</h3>
+                        <p className="text-gray-600">{chat.property_location}</p>
+                        <p className="text-sm text-gray-500 mt-1">
+                          Last message: {chat.last_message?.content || 'No messages yet'}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-gray-500">{formatDate(chat.last_message?.created_at || chat.created_at)}</p>
+                        <span className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium mt-1">
+                          {chat.message_count} messages
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Analytics Tab */}
+        {activeTab === 'analytics' && (
+          <div>
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">Analytics Dashboard</h2>
+              <p className="text-gray-600 mt-1">Track your property performance and business metrics</p>
+            </div>
+
+            {analytics ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div className="bg-white rounded-lg shadow p-6">
+                  <div className="flex items-center">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-600">Total Views</p>
+                      <p className="text-2xl font-bold text-gray-900">{analytics.totalViews.toLocaleString()}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg shadow p-6">
+                  <div className="flex items-center">
+                    <div className="p-2 bg-green-100 rounded-lg">
+                      <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                      </svg>
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-600">Inquiries</p>
+                      <p className="text-2xl font-bold text-gray-900">{analytics.totalInquiries}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg shadow p-6">
+                  <div className="flex items-center">
+                    <div className="p-2 bg-yellow-100 rounded-lg">
+                      <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      </svg>
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-600">Conversion Rate</p>
+                      <p className="text-2xl font-bold text-gray-900">{analytics.conversionRate}%</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg shadow p-6">
+                  <div className="flex items-center">
+                    <div className="p-2 bg-purple-100 rounded-lg">
+                      <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                      </svg>
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-600">Monthly Revenue</p>
+                      <p className="text-2xl font-bold text-gray-900">{formatPrice(analytics.monthlyRevenue)}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg shadow p-8 text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-500">Loading analytics...</p>
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -37,17 +37,12 @@ interface AdminDashboardProps {
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, apiUrl, onLogout }) => {
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'properties' | 'users' | 'reports'>('overview');
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = React.useCallback(async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('token');
       
       // Fetch all properties for admin overview
       const response = await fetch(`${apiUrl}/api/v1/properties/`, {
@@ -62,14 +57,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, apiUrl, onLogout 
 
       const data = await response.json();
       setProperties(Array.isArray(data) ? data : data.items || []);
-      setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
       console.error('Error fetching dashboard data:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiUrl]);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
+
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-NG', {
