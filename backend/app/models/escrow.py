@@ -58,6 +58,7 @@ class Escrow(Base):
     property = relationship("Property", back_populates="escrow_transactions")
     buyer = relationship("User", foreign_keys=[buyer_id], back_populates="escrow_as_buyer")
     seller = relationship("User", foreign_keys=[seller_id], back_populates="escrow_as_seller")
+    chat_room = relationship("ChatRoom", back_populates="escrow")
 
     def __repr__(self):
         return f"<Escrow(id={self.id}, amount={self.amount}, status={self.status})>"
