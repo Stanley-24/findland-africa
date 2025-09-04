@@ -29,6 +29,8 @@ class User(Base):
 
     # Relationships
     properties = relationship("Property", back_populates="owner")
+    escrow_as_buyer = relationship("Escrow", foreign_keys="Escrow.buyer_id", back_populates="buyer")
+    escrow_as_seller = relationship("Escrow", foreign_keys="Escrow.seller_id", back_populates="seller")
 
     def __repr__(self):
         return f"<User(id={self.id}, email={self.email}, role={self.role})>"
