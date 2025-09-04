@@ -83,7 +83,7 @@ jobs:
         scan-ref: '.'
         format: 'sarif'
         output: 'trivy-results.sarif'
-        ignorefile: '.github/security/trivy-ignore.yaml'
+        trivyignores: '.github/security/trivy-ignore.yaml'
         exit-code: '0'  # Don't fail the build on vulnerabilities
     
     - name: Upload Trivy scan results to GitHub Security tab

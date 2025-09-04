@@ -7,8 +7,8 @@ from dotenv import load_dotenv
 
 # Import our app modules
 from app.database import engine
-from app.models import user, property, media
-from app.api.v1 import auth, properties
+from app.models import user, property, media, escrow, chat, monitoring
+from app.api.v1 import auth, properties, escrow, chat, monitoring
 
 # Load environment variables
 load_dotenv()
@@ -57,6 +57,9 @@ async def health_check():
 # Include API routers
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(properties.router, prefix="/api/v1")
+app.include_router(escrow.router, prefix="/api/v1")
+app.include_router(chat.router, prefix="/api/v1")
+app.include_router(monitoring.router, prefix="/api/v1")
 
 @app.get("/api/v1/status")
 async def api_status():
@@ -67,8 +70,8 @@ async def api_status():
         "features": {
             "auth": "implemented",
             "properties": "implemented", 
-            "escrow": "planned",
-            "chat": "planned"
+            "escrow": "implemented",
+            "chat": "implemented"
         },
         "timestamp": datetime.now().isoformat()
     }
