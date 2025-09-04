@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
+import PropertyList from './components/PropertyList';
 
 interface ApiStatus {
   message: string;
@@ -12,11 +13,11 @@ function App() {
   const [apiStatus, setApiStatus] = useState<ApiStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
   useEffect(() => {
     const fetchApiStatus = async () => {
       try {
-        const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
         const response = await fetch(`${apiUrl}/`);
         if (!response.ok) {
           throw new Error('Failed to fetch API status');
@@ -31,7 +32,7 @@ function App() {
     };
 
     fetchApiStatus();
-  }, []);
+  }, [apiUrl]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -110,10 +111,10 @@ function App() {
               </h3>
               <ul className="space-y-2 text-gray-600">
                 <li>✅ Hello World API</li>
-                <li>🔄 User Authentication (Planned)</li>
-                <li>🏠 Property Listings (Planned)</li>
-                <li>💰 Escrow System (Planned)</li>
-                <li>💬 Real-time Chat (Planned)</li>
+                <li>✅ User Authentication</li>
+                <li>✅ Property Listings</li>
+                <li>✅ Escrow System</li>
+                <li>✅ Real-time Chat</li>
               </ul>
             </div>
 
@@ -124,7 +125,7 @@ function App() {
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Phase:</span>
-                  <span className="font-medium text-blue-600">Hello World</span>
+                  <span className="font-medium text-green-600">Core Features</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Budget:</span>
@@ -137,6 +138,13 @@ function App() {
               </div>
             </div>
           </div>
+
+          {/* Property Listings Section */}
+          {apiStatus && apiStatus.status === 'healthy' && (
+            <div className="mt-12">
+              <PropertyList apiUrl={apiUrl} />
+            </div>
+          )}
         </main>
 
         <footer className="text-center mt-12 text-gray-500">
