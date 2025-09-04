@@ -34,6 +34,7 @@ class Property(Base):
     # Relationships
     owner = relationship("User", back_populates="properties")
     media = relationship("Media", back_populates="property", cascade="all, delete-orphan")
+    escrow_transactions = relationship("Escrow", back_populates="property")
 
     def __repr__(self):
         return f"<Property(id={self.id}, title={self.title}, type={self.type}, price={self.price})>"
