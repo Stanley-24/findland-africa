@@ -73,6 +73,15 @@ def list_properties(
     
     return properties
 
+@router.get("/my-properties", response_model=List[PropertyWithMedia])
+def get_my_properties(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get properties owned by the current user"""
+    properties = db.query(Property).filter(Property.owner_id == current_user.id).all()
+    return properties
+
 @router.get("/{property_id}", response_model=PropertyWithMedia)
 def get_property(
     property_id: str,

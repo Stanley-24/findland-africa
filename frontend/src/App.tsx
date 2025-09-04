@@ -11,6 +11,8 @@ import ChatPage from './components/ChatPage';
 import PaymentSuccess from './components/PaymentSuccess';
 import About from './components/About';
 import Contact from './components/Contact';
+import { NotificationProvider } from './contexts/NotificationContext';
+import WebSocketManager from './components/WebSocketManager';
 
 function App() {
   const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -81,15 +83,36 @@ function App() {
     );
   }
 
+  // Get current user ID for WebSocket connection
+  const getCurrentUserId = () => {
+    const user = localStorage.getItem('user');
+    if (user) {
+      try {
+        return JSON.parse(user).id;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  };
+
   return (
-    <Router
-      future={{
-        v7_startTransition: true,
-        v7_relativeSplatPath: true
-      }}
-    >
-      <div className="App">
-        <Routes>
+    <NotificationProvider apiUrl={apiUrl}>
+      <Router
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true
+        }}
+      >
+        <div className="App">
+          {/* WebSocket Manager for real-time notifications */}
+          {isAuthenticated && (
+            <WebSocketManager 
+              apiUrl={apiUrl} 
+              userId={getCurrentUserId()} 
+            />
+          )}
+          <Routes>
           {/* Redirect authenticated users to dashboard */}
           <Route 
             path="/" 
@@ -130,7 +153,7 @@ function App() {
           
           {/* Chat Page - redirect to login if not authenticated */}
           <Route 
-            path="/chat/:propertyId" 
+            path="/chat/:chatRoomId" 
             element={isAuthenticated ? <ChatPage apiUrl={apiUrl} /> : <Navigate to="/login" replace />} 
           />
           <Route 
@@ -152,6 +175,7 @@ function App() {
         </Routes>
       </div>
     </Router>
+    </NotificationProvider>
   );
 }
 

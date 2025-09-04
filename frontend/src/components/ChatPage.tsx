@@ -40,7 +40,7 @@ interface ChatPageProps {
 }
 
 const ChatPage: React.FC<ChatPageProps> = ({ apiUrl }) => {
-  const { propertyId } = useParams<{ propertyId: string }>();
+  const { chatRoomId } = useParams<{ chatRoomId: string }>();
   const navigate = useNavigate();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatRoom, setChatRoom] = useState<ChatRoom | null>(null);
@@ -59,6 +59,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ apiUrl }) => {
   const [editingMessage, setEditingMessage] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
   const [showMessageMenu, setShowMessageMenu] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -69,6 +70,27 @@ const ChatPage: React.FC<ChatPageProps> = ({ apiUrl }) => {
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
+
+  // Fetch current user info
+  const fetchCurrentUser = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await fetch(`${apiUrl}/api/v1/auth/me`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const userData = await response.json();
+        setCurrentUser(userData);
+      }
+    } catch (err) {
+      console.error('Error fetching current user:', err);
+    }
+  }, [apiUrl]);
 
   useEffect(() => {
     scrollToBottom();
@@ -142,26 +164,6 @@ const ChatPage: React.FC<ChatPageProps> = ({ apiUrl }) => {
     message.content.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const fetchPropertyDetails = useCallback(async () => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        setError('No authentication token found');
-        return;
-      }
-
-      const response = await axios.get(
-        `${apiUrl}/api/v1/properties/${propertyId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      
-      setProperty(response.data);
-    } catch (err) {
-      console.error('Error fetching property details:', err);
-    }
-  }, [propertyId, apiUrl]);
-
-
   const fetchMessages = useCallback(async (roomId: string) => {
     try {
       const token = localStorage.getItem('token');
@@ -186,109 +188,62 @@ const ChatPage: React.FC<ChatPageProps> = ({ apiUrl }) => {
         navigate('/login');
         return;
       }
+      
+      // Handle forbidden access
+      if (err.response?.status === 403) {
+        setError('You do not have permission to view messages in this chat room.');
+        navigate('/dashboard');
+        return;
+      }
     }
   }, [apiUrl, navigate]);
 
-  const createChatRoom = useCallback(async () => {
-    try {
-      const token = localStorage.getItem('token');
-      
-      // First, get the property details to find the owner
-      const propertyResponse = await axios.get(
-        `${apiUrl}/api/v1/properties/${propertyId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      
-      const property = propertyResponse.data;
-      const ownerId = property.owner_id;
-      
-      // Create chat room between buyer and property owner (agent)
-      const response = await axios.post(
-        `${apiUrl}/api/v1/chat/rooms`,
-        {
-          name: `Chat with ${property.agent_name || 'Property Owner'}`,
-          room_type: 'property',
-          property_id: propertyId,
-          participant_ids: [ownerId] // Add property owner (agent) as participant
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      setChatRoom(response.data);
-      fetchMessages(response.data.id);
-    } catch (err: any) {
-      console.error('Error creating chat room:', err);
-      
-      // Handle authentication errors
-      if (err.response?.status === 401) {
-        setError('Your session has expired. Please log in again.');
-        // Clear invalid token and redirect to login
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        // Update global auth state
-        if ((window as any).updateAuthState) {
-          (window as any).updateAuthState();
-        }
-        navigate('/login');
-        return;
-      }
-      
-      setError('Failed to create chat room. Please try again.');
-    }
-  }, [propertyId, apiUrl, fetchMessages, navigate]);
-
   const fetchChatRoom = useCallback(async () => {
+    if (!chatRoomId) return;
+    
     try {
       const token = localStorage.getItem('token');
       if (!token) {
-        navigate('/login');
+        setError('No authentication token found');
         return;
       }
 
-      // First, try to get existing chat room for this property
-      const response = await axios.get(`${apiUrl}/api/v1/chat/rooms`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      // Find existing chat room for this property
-      const existingRoom = response.data.find((room: any) => room.property_id === propertyId);
+      // First fetch the chat room details
+      const chatRoomResponse = await axios.get(
+        `${apiUrl}/api/v1/chat/rooms/${chatRoomId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       
-      if (existingRoom) {
-        setChatRoom(existingRoom);
-        fetchMessages(existingRoom.id);
-      } else {
-        // Create a new chat room if none exists
-        await createChatRoom();
+      setChatRoom(chatRoomResponse.data);
+      
+      // Fetch messages for this chat room
+      fetchMessages(chatRoomId);
+      
+      // Then fetch the property details using the property_id from the chat room
+      if (chatRoomResponse.data.property_id) {
+        const propertyResponse = await axios.get(
+          `${apiUrl}/api/v1/properties/${chatRoomResponse.data.property_id}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        
+        setProperty(propertyResponse.data);
       }
-    } catch (err: any) {
-      console.error('Error fetching chat room:', err);
-      
-      // Handle authentication errors
-      if (err.response?.status === 401) {
-        setError('Your session has expired. Please log in again.');
-        // Clear invalid token and redirect to login
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        // Update global auth state
-        if ((window as any).updateAuthState) {
-          (window as any).updateAuthState();
-        }
-        navigate('/login');
-        return;
-      }
-      
-      setError('Failed to load chat room. Please try again.');
+    } catch (err) {
+      console.error('Error fetching chat room or property details:', err);
+      setError('Failed to load chat room or property details');
     } finally {
       setLoading(false);
     }
-  }, [propertyId, apiUrl, navigate, createChatRoom, fetchMessages]);
+  }, [chatRoomId, apiUrl, fetchMessages]);
+
+
 
   useEffect(() => {
-    if (propertyId) {
-      fetchPropertyDetails();
+    if (chatRoomId) {
+      fetchCurrentUser();
       fetchChatRoom();
     }
-  }, [propertyId, fetchPropertyDetails, fetchChatRoom]);
+  }, [chatRoomId, fetchCurrentUser, fetchChatRoom]);
 
   // Close message menu when clicking outside
   useEffect(() => {
@@ -316,8 +271,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ apiUrl }) => {
     const tempMessage: ChatMessage = {
       id: `temp-${Date.now()}`,
       content: messageContent,
-      sender_id: 'current-user',
-      sender_name: 'You',
+      sender_id: currentUser?.id || 'current-user',
+      sender_name: currentUser?.name || 'You',
       created_at: new Date().toISOString(),
       message_type: 'text'
     };
@@ -359,7 +314,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ apiUrl }) => {
         const realMessage = messages.find(msg => 
           msg.content === newContent.trim() && 
           !msg.id.startsWith('temp-') && 
-          msg.sender_name === 'You'
+          (msg.sender_id === currentUser?.id || msg.sender_name === currentUser?.name)
         );
         
         if (realMessage) {
@@ -563,7 +518,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ apiUrl }) => {
                      {property?.agent_name || 'Agent Chat'}
                    </h1>
                                      <p className="text-blue-100 text-xs sm:text-sm truncate hidden sm:block">
-                     {chatRoom?.property_title || `Property ID: ${propertyId}`}
+                     {chatRoom?.property_title || `Property ID: ${chatRoom?.property_id}`}
                    </p>
                   {property?.agent_rating && (
                     <div className="flex items-center bg-white bg-opacity-20 px-2 py-1 rounded-full mt-1 w-fit">
@@ -719,128 +674,159 @@ const ChatPage: React.FC<ChatPageProps> = ({ apiUrl }) => {
               </div>
             ) : (
               <>
-                {filteredMessages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`flex ${message.sender_name === 'You' ? 'justify-end' : 'justify-start'} mb-2 sm:mb-3 md:mb-4 lg:mb-6`}
-                  >
-                    <div className={`max-w-[85%] sm:max-w-xs md:max-w-sm lg:max-w-md xl:max-w-lg ${message.sender_name === 'You' ? 'order-2' : 'order-1'}`}>
-                      {message.sender_name !== 'You' && (
-                        <div className="flex items-center space-x-1.5 sm:space-x-2 md:space-x-3 mb-1.5 sm:mb-2 md:mb-3">
-                          <div className="w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 lg:w-12 lg:h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg ring-1 sm:ring-2 ring-white">
-                            <span className="text-white text-xs sm:text-sm md:text-base lg:text-lg font-bold">
-                              {message.sender_name.charAt(0)}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-xs sm:text-sm font-semibold text-gray-800">{message.sender_name}</span>
-                            <p className="text-xs text-gray-500">{formatTime(message.updated_at || message.created_at)}</p>
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* Message Content */}
-                      <div className="relative group">
-                        {editingMessage === message.id ? (
-                          // Edit Mode
-                          <div className="px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 rounded-lg sm:rounded-xl md:rounded-2xl bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg sm:shadow-xl">
-                            <input
-                              type="text"
-                              value={editContent}
-                              onChange={(e) => setEditContent(e.target.value)}
-                              onKeyPress={(e) => {
-                                if (e.key === 'Enter') {
-                                  editMessage(message.id, editContent);
-                                } else if (e.key === 'Escape') {
-                                  cancelEdit();
-                                }
-                              }}
-                              className="w-full bg-transparent text-white placeholder-blue-200 focus:outline-none text-xs sm:text-sm"
-                              placeholder="Edit message..."
-                              autoFocus
-                            />
-                            <div className="flex items-center justify-end mt-2 sm:mt-3 space-x-1.5 sm:space-x-2">
-                              <button
-                                onClick={() => editMessage(message.id, editContent)}
-                                className="text-xs bg-blue-700 hover:bg-blue-800 px-2 sm:px-3 md:px-4 py-1 sm:py-1.5 md:py-2 rounded-md sm:rounded-lg font-medium transition-colors"
-                              >
-                                Save
-                              </button>
-                              <button
-                                onClick={cancelEdit}
-                                className="text-xs bg-gray-600 hover:bg-gray-700 px-2 sm:px-3 md:px-4 py-1 sm:py-1.5 md:py-2 rounded-md sm:rounded-lg font-medium transition-colors"
-                              >
-                                Cancel
-                              </button>
+                {filteredMessages.map((message, index) => {
+                  const isCurrentUser = currentUser && (message.sender_id === currentUser.id || message.sender_name === currentUser.name);
+                  const prevMessage = index > 0 ? filteredMessages[index - 1] : null;
+                  const isConsecutive = prevMessage && prevMessage.sender_id === message.sender_id;
+                  const showAvatar = !isConsecutive;
+                  
+                  return (
+                    <div
+                      key={message.id}
+                      className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'} mb-1 sm:mb-2 md:mb-3`}
+                    >
+                      <div className={`max-w-[85%] sm:max-w-xs md:max-w-sm lg:max-w-md xl:max-w-lg ${isCurrentUser ? 'order-2' : 'order-1'}`}>
+                        {/* Avatar and sender info - only show for first message in a group */}
+                        {showAvatar && (
+                          <div className={`flex items-center space-x-2 mb-1 ${isCurrentUser ? 'justify-end' : 'justify-start'}`}>
+                            {!isCurrentUser && (
+                              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg ring-2 ring-white">
+                                <span className="text-white text-sm font-bold">
+                                  {message.sender_name.charAt(0)}
+                                </span>
+                              </div>
+                            )}
+                            <div>
+                              <span className="text-sm font-semibold text-gray-800">{message.sender_name}</span>
                             </div>
-                          </div>
-                        ) : (
-                          // Normal Message
-                          <div className="relative">
-                            <div
-                              className={`px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 rounded-lg sm:rounded-xl md:rounded-2xl shadow-sm sm:shadow-md ${
-                                message.sender_name === 'You'
-                                  ? 'bg-blue-500 text-white rounded-br-lg'
-                                  : 'bg-white text-gray-800 rounded-bl-lg border border-gray-200 shadow-sm'
-                              } ${message.id.startsWith('temp-') ? 'opacity-70' : ''} ${
-                                message.is_deleted ? 'opacity-50 italic bg-gray-100' : ''
-                              }`}
-                            >
-                              <p className="text-xs sm:text-sm md:text-base leading-relaxed break-words whitespace-pre-wrap">
-                                {message.content}
-                                {message.is_edited && (
-                                  <span className="text-xs opacity-75 ml-2 font-medium">(edited)</span>
-                                )}
-                              </p>
-                              {message.sender_name === 'You' && !message.is_deleted && (
-                                <div className="flex items-center justify-end mt-3">
-                                  <span className="text-xs opacity-75 mr-2">
-                                    {formatTime(message.updated_at || message.created_at)}
-                                  </span>
-                                  <div className="flex items-center space-x-1">
-                                    {message.id.startsWith('temp-') ? (
-                                      <div className="w-2 h-2 bg-blue-300 rounded-full animate-pulse"></div>
-                                    ) : (
-                                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                      </svg>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                            
-                            {/* Message Actions for User's Messages */}
-                            {message.sender_name === 'You' && !message.is_deleted && !editingMessage && (
-                              <div className="absolute -top-3 -right-3 opacity-0 group-hover:opacity-100 transition-all duration-300">
-                                <div className="flex space-x-2 bg-white rounded-full p-1 shadow-lg border border-gray-200">
-                                  <button
-                                    onClick={() => startEdit(message)}
-                                    className="bg-blue-500 hover:bg-blue-600 text-white p-2.5 rounded-full shadow-md transition-all duration-200 hover:scale-110"
-                                    title="Edit message"
-                                  >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                    </svg>
-                                  </button>
-                                  <button
-                                    onClick={() => deleteMessage(message.id)}
-                                    className="bg-red-500 hover:bg-red-600 text-white p-2.5 rounded-full shadow-md transition-all duration-200 hover:scale-110"
-                                    title="Delete message"
-                                  >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
-                                  </button>
-                                </div>
+                            {isCurrentUser && (
+                              <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-blue-600 rounded-full flex items-center justify-center shadow-lg ring-2 ring-white">
+                                <span className="text-white text-sm font-bold">
+                                  {currentUser.name.charAt(0)}
+                                </span>
                               </div>
                             )}
                           </div>
                         )}
+                        
+                        {/* Spacer for consecutive messages from same sender */}
+                        {!showAvatar && (
+                          <div className={`mb-1 ${isCurrentUser ? 'mr-10' : 'ml-10'}`}></div>
+                        )}
+                      
+                        {/* Message Content */}
+                        <div className="relative group">
+                          {editingMessage === message.id ? (
+                            // Edit Mode
+                            <div className="px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 rounded-lg sm:rounded-xl md:rounded-2xl bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg sm:shadow-xl">
+                              <input
+                                type="text"
+                                value={editContent}
+                                onChange={(e) => setEditContent(e.target.value)}
+                                onKeyPress={(e) => {
+                                  if (e.key === 'Enter') {
+                                    editMessage(message.id, editContent);
+                                  } else if (e.key === 'Escape') {
+                                    cancelEdit();
+                                  }
+                                }}
+                                className="w-full bg-transparent text-white placeholder-blue-200 focus:outline-none text-xs sm:text-sm"
+                                placeholder="Edit message..."
+                                autoFocus
+                              />
+                              <div className="flex items-center justify-end mt-2 sm:mt-3 space-x-1.5 sm:space-x-2">
+                                <button
+                                  onClick={() => editMessage(message.id, editContent)}
+                                  className="text-xs bg-blue-700 hover:bg-blue-800 px-2 sm:px-3 md:px-4 py-1 sm:py-1.5 md:py-2 rounded-md sm:rounded-lg font-medium transition-colors"
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  onClick={cancelEdit}
+                                  className="text-xs bg-gray-600 hover:bg-gray-700 px-2 sm:px-3 md:px-4 py-1 sm:py-1.5 md:py-2 rounded-md sm:rounded-lg font-medium transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            // Normal Message
+                            <div className="relative">
+                              <div
+                                className={`px-4 py-3 rounded-2xl shadow-sm ${
+                                  isCurrentUser
+                                    ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white ml-auto'
+                                    : 'bg-white text-gray-800 border border-gray-200'
+                                } ${
+                                  isCurrentUser 
+                                    ? isConsecutive 
+                                      ? 'rounded-br-md' 
+                                      : 'rounded-br-lg'
+                                    : isConsecutive 
+                                      ? 'rounded-bl-md' 
+                                      : 'rounded-bl-lg'
+                                } ${message.id.startsWith('temp-') ? 'opacity-70' : ''} ${
+                                  message.is_deleted ? 'opacity-50 italic bg-gray-100' : ''
+                                }`}
+                              >
+                                <p className="text-sm leading-relaxed break-words whitespace-pre-wrap">
+                                  {message.content}
+                                  {message.is_edited && (
+                                    <span className={`text-xs ml-2 font-medium ${isCurrentUser ? 'text-blue-100' : 'text-gray-500'}`}>
+                                      (edited)
+                                    </span>
+                                  )}
+                                </p>
+                                
+                                {/* Timestamp - only show for last message in a group or if not consecutive */}
+                                {(!isConsecutive || index === filteredMessages.length - 1) && !message.is_deleted && (
+                                  <div className={`flex items-center mt-2 ${isCurrentUser ? 'justify-end' : 'justify-start'}`}>
+                                    <span className={`text-xs ${isCurrentUser ? 'text-blue-100' : 'text-gray-500'}`}>
+                                      {formatTime(message.updated_at || message.created_at)}
+                                    </span>
+                                    {message.id.startsWith('temp-') ? (
+                                      <div className={`w-2 h-2 rounded-full animate-pulse ${isCurrentUser ? 'bg-blue-200' : 'bg-gray-400'}`}></div>
+                                    ) : (
+                                      <svg className={`w-3 h-3 ${isCurrentUser ? 'text-blue-200' : 'text-gray-400'}`} fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                      </svg>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                              
+                              {/* Message Actions for User's Messages */}
+                              {isCurrentUser && !message.is_deleted && !editingMessage && (
+                                <div className="absolute -top-3 -right-3 opacity-0 group-hover:opacity-100 transition-all duration-300">
+                                  <div className="flex space-x-2 bg-white rounded-full p-1 shadow-lg border border-gray-200">
+                                    <button
+                                      onClick={() => startEdit(message)}
+                                      className="bg-blue-500 hover:bg-blue-600 text-white p-2.5 rounded-full shadow-md transition-all duration-200 hover:scale-110"
+                                      title="Edit message"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                      </svg>
+                                    </button>
+                                    <button
+                                      onClick={() => deleteMessage(message.id)}
+                                      className="bg-red-500 hover:bg-red-600 text-white p-2.5 rounded-full shadow-md transition-all duration-200 hover:scale-110"
+                                      title="Delete message"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
                 
                 {/* Typing Indicator */}
                 {isTyping && (

@@ -132,11 +132,20 @@ const BuyerDashboard: React.FC<BuyerDashboardProps> = ({ user, apiUrl, onLogout 
       });
       setApplications(applicationsResponse.data);
 
-      // Fetch user's chat rooms
+      // Fetch user's chat rooms (privacy: only rooms where user is a participant)
       const chatResponse = await axios.get(`${apiUrl}/api/v1/chat/rooms`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
-      setChatRooms(chatResponse.data);
+      
+      // Additional privacy validation: ensure user is participant in each room
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const filteredChatRooms = chatResponse.data.filter((room: any) => 
+        room.participants.some((participant: any) => 
+          participant.user_id === user.id && participant.is_active
+        )
+      );
+      
+      setChatRooms(filteredChatRooms);
 
       setError(null);
     } catch (err) {
@@ -558,7 +567,8 @@ const BuyerDashboard: React.FC<BuyerDashboardProps> = ({ user, apiUrl, onLogout 
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  navigate(`/chat/${property.id}`);
+                                  // TODO: Create chat room for this property or navigate to existing one
+                                  console.log('Chat functionality needs to be implemented for property:', property.id);
                                 }}
                                 className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-xs font-medium transition-colors"
                               >
@@ -641,17 +651,20 @@ const BuyerDashboard: React.FC<BuyerDashboardProps> = ({ user, apiUrl, onLogout 
                       <span>Applied on {formatDate(application.created_at)}</span>
                       <div className="space-x-2">
                         <Link
-                          to={`/properties/${application.property_id}`}
+                          to={`/property/${application.property_id}`}
                           className="text-blue-600 hover:text-blue-700 font-medium"
                         >
                           View Property
                         </Link>
-                        <Link
-                          to={`/chat/${application.property_id}`}
+                        <button
+                          onClick={() => {
+                            // TODO: Find or create chat room for this application
+                            console.log('Chat functionality needs to be implemented for application:', application.id);
+                          }}
                           className="text-green-600 hover:text-green-700 font-medium"
                         >
                           Open Chat
-                        </Link>
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -665,7 +678,18 @@ const BuyerDashboard: React.FC<BuyerDashboardProps> = ({ user, apiUrl, onLogout 
         {activeTab === 'chats' && (
           <div>
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">My Conversations</h2>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">My Conversations</h2>
+                <div className="flex items-center mt-1 space-x-2">
+                  <div className="flex items-center space-x-1 bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs">
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                    </svg>
+                    <span className="font-medium">Private & Secure</span>
+                  </div>
+                  <span className="text-xs text-gray-500">Only conversations you participate in</span>
+                </div>
+              </div>
               <Link
                 to="/properties"
                 className="text-blue-600 hover:text-blue-700 font-medium"
@@ -691,7 +715,7 @@ const BuyerDashboard: React.FC<BuyerDashboardProps> = ({ user, apiUrl, onLogout 
             ) : (
               <div className="space-y-2">
                 {chatRooms.map((chat) => (
-                  <div key={chat.id} className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate(`/chat/${chat.property_id}`)}>
+                  <div key={chat.id} className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate(`/chat/${chat.id}`)}>
                     <div className="flex items-center p-3 sm:p-4">
                       {/* Agent Avatar */}
                       <div className="flex-shrink-0 mr-3 sm:mr-4">
@@ -720,9 +744,17 @@ const BuyerDashboard: React.FC<BuyerDashboardProps> = ({ user, apiUrl, onLogout 
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
-                            {chat.agent_name && (
-                              <h3 className="text-sm sm:text-base font-bold text-blue-600 truncate">{chat.agent_name}</h3>
-                            )}
+                            <div className="flex items-center space-x-2">
+                              {chat.agent_name && (
+                                <h3 className="text-sm sm:text-base font-bold text-blue-600 truncate">{chat.agent_name}</h3>
+                              )}
+                              <div className="flex items-center space-x-1 bg-green-100 text-green-800 px-1.5 py-0.5 rounded-full text-xs">
+                                <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                                </svg>
+                                <span className="font-medium">Private</span>
+                              </div>
+                            </div>
                             <p className="text-xs sm:text-sm text-gray-700 truncate hidden sm:block md:block lg:block">{chat.property_title || 'Property Chat'}</p>
                             <p className="text-xs text-gray-500 truncate hidden sm:block md:block lg:block">{chat.property_location || 'Location not available'}</p>
                           </div>
@@ -766,7 +798,7 @@ const BuyerDashboard: React.FC<BuyerDashboardProps> = ({ user, apiUrl, onLogout 
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                navigate(`/chat/${chat.property_id}`);
+                                navigate(`/chat/${chat.id}`);
                               }}
                               className="text-blue-600 hover:text-blue-700 text-xs font-medium px-2 py-1 rounded hover:bg-blue-50"
                             >
