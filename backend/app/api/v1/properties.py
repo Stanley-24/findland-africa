@@ -40,7 +40,7 @@ def create_property(
     
     return db_property
 
-@router.get("/", response_model=List[PropertySchema])
+@router.get("/", response_model=List[PropertyWithMedia])
 def list_properties(
     type: Optional[PropertyType] = Query(None, description="Filter by property type"),
     status: Optional[PropertyStatus] = Query(None, description="Filter by property status"),
@@ -52,7 +52,9 @@ def list_properties(
     db: Session = Depends(get_db)
 ):
     """List all properties with optional filters"""
-    query = db.query(Property)
+    from sqlalchemy.orm import joinedload
+    
+    query = db.query(Property).options(joinedload(Property.media))
     
     # Apply filters
     if type:
@@ -146,3 +148,58 @@ def delete_property(
     db.commit()
     
     return None
+
+@router.get("/agent/{agent_name}", response_model=dict)
+def get_agent_properties(
+    agent_name: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get all properties by a specific agent"""
+    # Find properties by agent name
+    properties = db.query(Property).filter(
+        Property.agent_name == agent_name
+    ).all()
+    
+    if not properties:
+        # Return empty result if no properties found
+        return {
+            "name": agent_name,
+            "email": "",
+            "phone_number": "",
+            "rating": 0.0,
+            "total_properties": 0,
+            "properties": []
+        }
+    
+    # Get agent details from the first property
+    first_property = properties[0]
+    
+    # Calculate average rating
+    total_rating = sum(float(p.agent_rating) for p in properties if p.agent_rating)
+    avg_rating = total_rating / len(properties) if properties else 0.0
+    
+    # Format properties for response
+    properties_data = []
+    for prop in properties:
+        property_data = {
+            "id": str(prop.id),
+            "title": prop.title,
+            "location": prop.location,
+            "price": float(prop.price),
+            "description": prop.description or "",
+            "property_type": prop.type.value if prop.type else "sale",
+            "status": prop.status.value if prop.status else "available",
+            "images": [],  # We'll add media later if needed
+            "created_at": prop.created_at.isoformat() if prop.created_at else None
+        }
+        properties_data.append(property_data)
+    
+    return {
+        "name": agent_name,
+        "email": first_property.agent_email or "",
+        "phone_number": first_property.agent_phone or "",
+        "rating": round(avg_rating, 1),
+        "total_properties": len(properties),
+        "properties": properties_data
+    }
