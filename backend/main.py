@@ -7,7 +7,8 @@ from dotenv import load_dotenv
 
 # Import our app modules
 from app.database import engine
-from app.models import user, property, media, escrow, chat, monitoring
+# Import models in correct order to avoid relationship issues
+from app.models import media, property, user, escrow, chat, monitoring
 from app.api.v1 import auth, properties, escrow, chat, monitoring
 
 # Load environment variables
@@ -23,12 +24,11 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS middleware for frontend integration
-cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+# CORS middleware for frontend integration - Development mode
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins,
-    allow_credentials=True,
+    allow_origins=["*"],  # Allow all origins for development
+    allow_credentials=False,  # Must be False when allow_origins is ["*"]
     allow_methods=["*"],
     allow_headers=["*"],
 )

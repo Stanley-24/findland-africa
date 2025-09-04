@@ -54,5 +54,6 @@ class Escrow(EscrowInDB):
 
 class EscrowWithDetails(Escrow):
     property_title: Optional[str] = None
+    property_location: Optional[str] = None
     buyer_name: str
     seller_name: str

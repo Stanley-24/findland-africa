@@ -102,6 +102,36 @@ def list_escrow_transactions(
     
     return result
 
+@router.get("/my-applications", response_model=List[EscrowWithDetails])
+def get_my_applications(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get applications submitted by the current user"""
+    # Get all escrow transactions where current user is the buyer
+    applications = db.query(Escrow).filter(Escrow.buyer_id == current_user.id).all()
+    
+    # Add user and property details
+    result = []
+    for escrow in applications:
+        escrow_dict = escrow.__dict__.copy()
+        
+        # Get buyer and seller names
+        buyer = db.query(User).filter(User.id == escrow.buyer_id).first()
+        seller = db.query(User).filter(User.id == escrow.seller_id).first()
+        escrow_dict['buyer_name'] = buyer.name if buyer else "Unknown"
+        escrow_dict['seller_name'] = seller.name if seller else "Unknown"
+        
+        # Get property details if exists
+        if escrow.property_id:
+            property = db.query(Property).filter(Property.id == escrow.property_id).first()
+            escrow_dict['property_title'] = property.title if property else None
+            escrow_dict['property_location'] = property.location if property else None
+        
+        result.append(EscrowWithDetails(**escrow_dict))
+    
+    return result
+
 @router.get("/{escrow_id}", response_model=EscrowWithDetails)
 def get_escrow(
     escrow_id: str,

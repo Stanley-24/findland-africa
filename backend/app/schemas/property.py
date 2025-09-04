@@ -10,6 +10,12 @@ class PropertyBase(BaseModel):
     type: PropertyType
     price: Decimal = Field(..., gt=0)
     location: str = Field(..., min_length=1, max_length=500)
+    
+    # Agent information for future agent directory feature
+    agent_name: Optional[str] = Field(None, max_length=255)
+    agent_rating: Optional[Decimal] = Field(None, ge=0, le=5)  # Rating from 0.00 to 5.00
+    agent_phone: Optional[str] = Field(None, max_length=20)
+    agent_email: Optional[str] = Field(None, max_length=255)
 
 class PropertyCreate(PropertyBase):
     pass
@@ -21,6 +27,12 @@ class PropertyUpdate(BaseModel):
     price: Optional[Decimal] = Field(None, gt=0)
     location: Optional[str] = Field(None, min_length=1, max_length=500)
     status: Optional[PropertyStatus] = None
+    
+    # Agent information for future agent directory feature
+    agent_name: Optional[str] = Field(None, max_length=255)
+    agent_rating: Optional[Decimal] = Field(None, ge=0, le=5)  # Rating from 0.00 to 5.00
+    agent_phone: Optional[str] = Field(None, max_length=20)
+    agent_email: Optional[str] = Field(None, max_length=255)
 
 class PropertyInDB(PropertyBase):
     id: str

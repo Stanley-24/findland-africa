@@ -1,8 +1,47 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import NotificationBadge from './NotificationBadge';
 
 const Header: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Check if user is authenticated
+    const token = localStorage.getItem('token');
+    if (token) {
+      setIsAuthenticated(true);
+      // You can decode the JWT token to get user info or make an API call
+      // For now, we'll just set a basic user object
+      setUser({ name: 'User', email: 'user@example.com' });
+    }
+  }, []);
+
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    setIsAuthenticated(false);
+    setUser(null);
+    navigate('/');
+  };
+
+  const handleBuySell = () => {
+    navigate('/register');
+  };
+
+  const handleRent = () => {
+    navigate('/properties?type=rent');
+  };
+
+  const handleContactAgent = () => {
+    navigate('/register');
+  };
+
+  const handleListProperty = () => {
+    navigate('/register');
+  };
 
   return (
     <header className="bg-white shadow-sm border-b border-gray-200">
@@ -19,30 +58,30 @@ const Header: React.FC = () => {
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex space-x-8">
-            <Link 
-              to="/properties?type=buy" 
+          <nav className="hidden md:flex space-x-6">
+            <button
+              onClick={handleBuySell}
               className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors"
             >
-              Buy
-            </Link>
-            <Link 
-              to="/properties?type=rent" 
+              Buy/Sell
+            </button>
+            <button
+              onClick={handleRent}
               className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors"
             >
               Rent
-            </Link>
-            <Link 
-              to="/list-property" 
+            </button>
+            <button
+              onClick={handleContactAgent}
               className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors"
             >
-              Sell/List Property
-            </Link>
+              Contact Agent
+            </button>
             <Link 
               to="/about" 
               className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors"
             >
-              About Us
+              About
             </Link>
             <Link 
               to="/contact" 
@@ -54,18 +93,32 @@ const Header: React.FC = () => {
 
           {/* User Actions */}
           <div className="hidden md:flex items-center space-x-4">
-            <Link 
-              to="/login" 
-              className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors"
-            >
-              Sign In
-            </Link>
-            <Link 
-              to="/list-property" 
+            <button
+              onClick={handleListProperty}
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
             >
-              List Your Property
-            </Link>
+              List Property
+            </button>
+            {isAuthenticated && (
+              <>
+                <span className="text-gray-700 text-sm">
+                  Welcome, {user?.name || 'User'}
+                </span>
+                <NotificationBadge />
+                <Link 
+                  to="/dashboard" 
+                  className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors"
+                >
+                  Dashboard
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors"
+                >
+                  Logout
+                </button>
+              </>
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -85,33 +138,39 @@ const Header: React.FC = () => {
         {isMenuOpen && (
           <div className="md:hidden">
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-gray-50">
-              <Link 
-                to="/properties?type=buy" 
-                className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium"
-                onClick={() => setIsMenuOpen(false)}
+              <button
+                onClick={() => {
+                  handleBuySell();
+                  setIsMenuOpen(false);
+                }}
+                className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium w-full text-left"
               >
-                Buy
-              </Link>
-              <Link 
-                to="/properties?type=rent" 
-                className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium"
-                onClick={() => setIsMenuOpen(false)}
+                Buy/Sell
+              </button>
+              <button
+                onClick={() => {
+                  handleRent();
+                  setIsMenuOpen(false);
+                }}
+                className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium w-full text-left"
               >
                 Rent
-              </Link>
-              <Link 
-                to="/list-property" 
-                className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium"
-                onClick={() => setIsMenuOpen(false)}
+              </button>
+              <button
+                onClick={() => {
+                  handleContactAgent();
+                  setIsMenuOpen(false);
+                }}
+                className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium w-full text-left"
               >
-                Sell/List Property
-              </Link>
+                Contact Agent
+              </button>
               <Link 
                 to="/about" 
                 className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium"
                 onClick={() => setIsMenuOpen(false)}
               >
-                About Us
+                About
               </Link>
               <Link 
                 to="/contact" 
@@ -121,20 +180,41 @@ const Header: React.FC = () => {
                 Contact
               </Link>
               <div className="border-t border-gray-200 pt-4">
-                <Link 
-                  to="/login" 
-                  className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium"
-                  onClick={() => setIsMenuOpen(false)}
+                <button
+                  onClick={() => {
+                    handleListProperty();
+                    setIsMenuOpen(false);
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white block px-3 py-2 rounded-md text-base font-medium w-full mb-4"
                 >
-                  Sign In
-                </Link>
-                <Link 
-                  to="/list-property" 
-                  className="bg-blue-600 hover:bg-blue-700 text-white block px-3 py-2 rounded-md text-base font-medium mt-2"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  List Your Property
-                </Link>
+                  List Property
+                </button>
+                {isAuthenticated && (
+                  <>
+                    <span className="text-gray-700 block px-3 py-2 text-base font-medium">
+                      Welcome, {user?.name || 'User'}
+                    </span>
+                    <div className="px-3 py-2">
+                      <NotificationBadge />
+                    </div>
+                    <Link 
+                      to="/dashboard" 
+                      className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Dashboard
+                    </Link>
+                    <button
+                      onClick={() => {
+                        handleLogout();
+                        setIsMenuOpen(false);
+                      }}
+                      className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium w-full text-left"
+                    >
+                      Logout
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>

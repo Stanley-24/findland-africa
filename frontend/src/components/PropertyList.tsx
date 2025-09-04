@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import OnboardingForm from './OnboardingForm';
 
 interface Property {
   id: string;
@@ -11,25 +13,70 @@ interface Property {
   status: 'available' | 'pending' | 'sold' | 'rented';
   created_at: string;
   owner_id: string;
+  media?: Array<{
+    id: string;
+    media_type: string;
+    url: string;
+  }>;
 }
 
 interface PropertyListProps {
   apiUrl: string;
 }
 
+interface OnboardingData {
+  fullName: string;
+  email: string;
+  phone: string;
+  purpose: string;
+  budget?: number;
+  timeline: string;
+  additionalInfo: string;
+  agreeToTerms: boolean;
+}
+
 const PropertyList: React.FC<PropertyListProps> = ({ apiUrl }) => {
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const [selectedImageIndex, setSelectedImageIndex] = useState<Record<string, number>>({});
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
 
   useEffect(() => {
     fetchProperties();
-  }, [apiUrl]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [apiUrl, searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchProperties = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${apiUrl}/api/v1/properties/`);
+      
+      // Get URL parameters
+      const type = searchParams.get('type');
+      const search = searchParams.get('search');
+      
+      // Build query parameters
+      const params = new URLSearchParams();
+      if (type && type !== 'all') {
+        // Map frontend types to backend types
+        if (type === 'buy') {
+          params.set('type', 'sale');
+        } else if (type === 'rent') {
+          params.set('type', 'rent');
+        } else if (type === 'land') {
+          params.set('type', 'land');
+        }
+      }
+      if (search) {
+        params.set('location', search);
+      }
+      
+      const queryString = params.toString();
+      const url = `${apiUrl}/api/v1/properties/${queryString ? `?${queryString}` : ''}`;
+      
+      const response = await axios.get(url);
       setProperties(response.data);
       setError(null);
     } catch (err) {
@@ -60,6 +107,87 @@ const PropertyList: React.FC<PropertyListProps> = ({ apiUrl }) => {
       default:
         return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const getPropertyTypeColor = (type: string) => {
+    switch (type) {
+      case 'sale': return 'bg-green-100 text-green-800';
+      case 'rent': return 'bg-blue-100 text-blue-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getCurrentImageIndex = (propertyId: string) => {
+    return selectedImageIndex[propertyId] || 0;
+  };
+
+  const setCurrentImageIndex = (propertyId: string, index: number) => {
+    setSelectedImageIndex(prev => ({ ...prev, [propertyId]: index }));
+  };
+
+  const navigateImage = (propertyId: string, direction: 'prev' | 'next', totalImages: number) => {
+    const currentIndex = getCurrentImageIndex(propertyId);
+    let newIndex;
+    
+    if (direction === 'prev') {
+      newIndex = currentIndex > 0 ? currentIndex - 1 : totalImages - 1;
+    } else {
+      newIndex = currentIndex < totalImages - 1 ? currentIndex + 1 : 0;
+    }
+    
+    setCurrentImageIndex(propertyId, newIndex);
+  };
+
+  const handleOnboardingSubmit = async (data: OnboardingData) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        alert('Please login to continue');
+        return;
+      }
+
+      if (!selectedProperty) {
+        alert('Property not found');
+        return;
+      }
+
+      // Create chat room for this property with user information
+      const response = await fetch(`${apiUrl}/api/v1/chat/rooms`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          property_id: selectedProperty.id,
+          room_type: 'property_inquiry',
+          user_info: {
+            full_name: data.fullName,
+            email: data.email,
+            phone: data.phone,
+            purpose: data.purpose,
+            timeline: data.timeline,
+            additional_info: data.additionalInfo
+          }
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        alert('Contact request submitted successfully! The property owner will get in touch with you soon.');
+        window.open(`/chat/${result.id}`, '_blank');
+      } else {
+        alert('Failed to submit contact request. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error submitting contact request:', error);
+      alert('Error submitting contact request. Please try again.');
+    }
+  };
+
+  const handleContactClick = (property: Property) => {
+    setSelectedProperty(property);
+    setShowOnboarding(true);
   };
 
   if (loading) {
@@ -111,8 +239,34 @@ const PropertyList: React.FC<PropertyListProps> = ({ apiUrl }) => {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-6">
+          {/* Back Button */}
+          <button
+            onClick={() => navigate('/')}
+            className="flex items-center text-gray-600 hover:text-blue-600 mb-4 transition-colors"
+          >
+            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Back to Home
+          </button>
+
           <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold text-gray-900">Property Listings</h2>
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">
+                {(() => {
+                  const type = searchParams.get('type');
+                  const search = searchParams.get('search');
+                  if (type === 'buy') return 'Properties for Sale';
+                  if (type === 'rent') return 'Properties for Rent';
+                  if (type === 'land') return 'Land for Sale';
+                  if (search) return `Properties in ${search}`;
+                  return 'All Property Listings';
+                })()}
+              </h2>
+              <p className="text-gray-600 mt-1">
+                {properties.length} {properties.length === 1 ? 'property' : 'properties'} found
+              </p>
+            </div>
             <button
               onClick={fetchProperties}
               className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
@@ -132,60 +286,160 @@ const PropertyList: React.FC<PropertyListProps> = ({ apiUrl }) => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {properties.map((property) => (
-            <div key={property.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
-              <div className="p-6">
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="text-lg font-semibold text-gray-900 line-clamp-2">
-                    {property.title}
-                  </h3>
+            <div key={property.id} className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+              {/* Property Image Gallery */}
+              <div className="relative h-48 bg-gradient-to-br from-blue-100 to-blue-200 group">
+                {property.media && property.media.length > 0 ? (
+                  <img
+                    src={property.media[getCurrentImageIndex(property.id)]?.url || property.media[0].url}
+                    alt={property.title}
+                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-2">
+                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                        </svg>
+                      </div>
+                      <p className="text-blue-600 text-sm font-medium">No Image</p>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Image Navigation Arrows */}
+                {property.media && property.media.length > 1 && (
+                  <>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigateImage(property.id, 'prev', property.media!.length);
+                      }}
+                      className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-1.5 rounded-full hover:bg-opacity-70 transition-all opacity-0 group-hover:opacity-100"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigateImage(property.id, 'next', property.media!.length);
+                      }}
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-1.5 rounded-full hover:bg-opacity-70 transition-all opacity-0 group-hover:opacity-100"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  </>
+                )}
+
+                {/* Image Counter */}
+                {property.media && property.media.length > 1 && (
+                  <div className="absolute bottom-2 right-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded-full text-xs">
+                    {getCurrentImageIndex(property.id) + 1} / {property.media.length}
+                  </div>
+                )}
+                
+                {/* Property Type Badge */}
+                <div className="absolute top-3 left-3">
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${getPropertyTypeColor(property.type)}`}>
+                    {property.type.charAt(0).toUpperCase() + property.type.slice(1)}
+                  </span>
+                </div>
+                
+                {/* Status Badge */}
+                <div className="absolute top-3 right-3">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(property.status)}`}>
                     {property.status}
                   </span>
                 </div>
                 
-                <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+                {/* Price Overlay */}
+                <div className="absolute bottom-3 left-3 right-3">
+                  <div className="bg-white bg-opacity-90 backdrop-blur-sm rounded-lg px-3 py-2">
+                    <div className="text-lg font-bold text-green-600">
+                      {formatPrice(property.price)}
+                    </div>
+                    <div className="text-xs text-gray-600">
+                      {property.type === 'rent' ? 'per month' : 'total price'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Thumbnail Gallery */}
+              {property.media && property.media.length > 1 && (
+                <div className="px-3 py-2 bg-gray-50">
+                  <div className="flex space-x-1 overflow-x-auto">
+                    {property.media.map((media, index) => (
+                      <button
+                        key={media.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCurrentImageIndex(property.id, index);
+                        }}
+                        className={`flex-shrink-0 w-12 h-8 rounded overflow-hidden border transition-all ${
+                          index === getCurrentImageIndex(property.id) 
+                            ? 'border-blue-500 ring-1 ring-blue-200' 
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <img
+                          src={media.url}
+                          alt={`${property.title} ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Property Details */}
+              <div className="p-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
+                  {property.title}
+                </h3>
+                
+                <div className="flex items-center text-gray-600 mb-3">
+                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span className="text-sm truncate">{property.location}</span>
+                </div>
+                
+                <p className="text-sm text-gray-600 mb-4 line-clamp-2">
                   {property.description || 'No description available'}
                 </p>
                 
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-500">Type:</span>
-                    <span className="text-sm font-medium text-gray-900 capitalize">
-                      {property.type}
-                    </span>
-                  </div>
-                  
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-500">Price:</span>
-                    <span className="text-sm font-bold text-green-600">
-                      {formatPrice(property.price)}
-                    </span>
-                  </div>
-                  
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-500">Location:</span>
-                    <span className="text-sm text-gray-900 truncate ml-2">
-                      {property.location}
-                    </span>
-                  </div>
-                  
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-500">Listed:</span>
-                    <span className="text-sm text-gray-900">
-                      {new Date(property.created_at).toLocaleDateString()}
-                    </span>
+                <div className="flex items-center justify-between text-xs text-gray-500 mb-4">
+                  <span>Listed: {new Date(property.created_at).toLocaleDateString()}</span>
+                  <div className="flex items-center">
+                    <svg className="w-3 h-3 text-green-600 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>Verified</span>
                   </div>
                 </div>
                 
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <div className="flex space-x-2">
-                    <button className="flex-1 bg-blue-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors">
-                      View Details
-                    </button>
-                    <button className="flex-1 bg-green-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-green-700 transition-colors">
-                      Contact
-                    </button>
-                  </div>
+                {/* Action Buttons */}
+                <div className="flex space-x-2">
+                  <Link
+                    to={`/property/${property.id}`}
+                    className="flex-1 bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors text-center"
+                  >
+                    View Details
+                  </Link>
+                  <button 
+                    onClick={() => handleContactClick(property)}
+                    className="flex-1 bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
+                  >
+                    Contact
+                  </button>
                 </div>
               </div>
             </div>
@@ -194,6 +448,18 @@ const PropertyList: React.FC<PropertyListProps> = ({ apiUrl }) => {
       )}
         </div>
       </div>
+
+      {/* Onboarding Form Modal */}
+      <OnboardingForm
+        isOpen={showOnboarding}
+        onClose={() => {
+          setShowOnboarding(false);
+          setSelectedProperty(null);
+        }}
+        onSubmit={handleOnboardingSubmit}
+        type="contact"
+        propertyTitle={selectedProperty?.title}
+      />
     </div>
   );
 };
