@@ -43,7 +43,7 @@ const PropertiesShowcase: React.FC<PropertiesShowcaseProps> = ({ apiUrl }) => {
 
   const handleOnboardingSubmit = async (data: OnboardingData) => {
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('token');
       if (!token) {
         alert('Please login to continue');
         return;

@@ -140,7 +140,7 @@ const PropertyList: React.FC<PropertyListProps> = ({ apiUrl }) => {
 
   const handleOnboardingSubmit = async (data: OnboardingData) => {
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('token');
       if (!token) {
         alert('Please login to continue');
         return;
@@ -429,7 +429,7 @@ const PropertyList: React.FC<PropertyListProps> = ({ apiUrl }) => {
                 {/* Action Buttons */}
                 <div className="flex space-x-2">
                   <Link
-                    to={`/properties/${property.id}`}
+                    to={`/property/${property.id}`}
                     className="flex-1 bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors text-center"
                   >
                     View Details

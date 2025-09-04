@@ -41,15 +41,6 @@ const Register: React.FC = () => {
     });
   };
 
-  const handleDemoFill = (demoData: any) => {
-    setFormData({
-      name: demoData.name,
-      email: demoData.email,
-      password: 'password123',
-      confirmPassword: 'password123',
-      phone: demoData.phone
-    });
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -280,13 +271,13 @@ const Register: React.FC = () => {
           <div className="text-center">
             <p className="text-sm text-gray-600">
               By creating an account, you agree to our{' '}
-              <a href="#" className="font-medium text-blue-600 hover:text-blue-500">
+              <button className="font-medium text-blue-600 hover:text-blue-500">
                 Terms of Service
-              </a>{' '}
+              </button>{' '}
               and{' '}
-              <a href="#" className="font-medium text-blue-600 hover:text-blue-500">
+              <button className="font-medium text-blue-600 hover:text-blue-500">
                 Privacy Policy
-              </a>
+              </button>
             </p>
           </div>
 

@@ -493,7 +493,7 @@ def get_chat_messages(
     return result
 
 @router.post("/rooms/{room_id}/messages", response_model=ChatMessageWithDetails, status_code=status.HTTP_201_CREATED)
-def send_message(
+async def send_message(
     room_id: str,
     message_data: ChatMessageSend,
     current_user: User = Depends(get_current_user),
@@ -529,6 +529,9 @@ def send_message(
     db.commit()
     db.refresh(db_message)
     
+    # Get room details for notifications
+    room = db.query(ChatRoom).filter(ChatRoom.id == room_id).first()
+    
     # Broadcast to WebSocket connections
     message_dict = {
         "id": str(db_message.id),
@@ -542,14 +545,37 @@ def send_message(
         "created_at": db_message.created_at.isoformat()
     }
     
-    # This would be handled by WebSocket in real implementation
-    # await manager.broadcast_to_room(json.dumps(message_dict), room_id, str(current_user.id))
+    # Broadcast to WebSocket connections in the room
+    await manager.broadcast_to_room(json.dumps({
+        "type": "message",
+        "data": message_dict,
+        "room_id": room_id,
+        "sender_id": str(current_user.id),
+        "sender_name": current_user.name
+    }), room_id, str(current_user.id))
+    
+    # Send notification to all participants in the room (except sender)
+    participants = db.query(ChatParticipant).filter(
+        ChatParticipant.room_id == room_id,
+        ChatParticipant.is_active == True,
+        ChatParticipant.user_id != current_user.id
+    ).all()
+    
+    for participant in participants:
+        await manager.send_personal_message(json.dumps({
+            "type": "notification",
+            "data": {
+                "type": "message",
+                "title": f"New message from {current_user.name}",
+                "message": message_data.content[:50] + "..." if len(message_data.content) > 50 else message_data.content,
+                "chatRoomId": room_id,
+                "propertyId": room.property_id if room else None
+            }
+        }), str(participant.user_id))
     
     # Return message with details
     message_dict = db_message.__dict__.copy()
     message_dict['sender_name'] = current_user.name
-    
-    room = db.query(ChatRoom).filter(ChatRoom.id == room_id).first()
     message_dict['room_name'] = room.name if room else None
     
     return ChatMessageWithDetails(**message_dict)
@@ -681,3 +707,18 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str, user_id: str = 
     except WebSocketDisconnect:
         manager.disconnect(user_id)
         await manager.leave_room(user_id, room_id)
+
+@router.websocket("/ws/notifications")
+async def notification_websocket_endpoint(websocket: WebSocket, user_id: str = Query(...)):
+    """WebSocket endpoint for global notifications"""
+    await manager.connect(websocket, user_id)
+    
+    try:
+        while True:
+            # Keep connection alive and handle any incoming messages
+            data = await websocket.receive_text()
+            # For now, just echo back to keep connection alive
+            await websocket.send_text(data)
+            
+    except WebSocketDisconnect:
+        manager.disconnect(user_id)

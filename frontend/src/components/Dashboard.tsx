@@ -29,18 +29,7 @@ const Dashboard: React.FC<DashboardProps> = ({ apiUrl, onLogout }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  useEffect(() => {
-    fetchUserProfile();
-    
-    // Check if user came from registration
-    if (location.state?.message) {
-      setShowWelcomeMessage(true);
-      // Clear the message from location state
-      navigate(location.pathname, { replace: true });
-    }
-  }, []);
-
-  const fetchUserProfile = async () => {
+  const fetchUserProfile = React.useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
@@ -70,7 +59,19 @@ const Dashboard: React.FC<DashboardProps> = ({ apiUrl, onLogout }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiUrl, navigate, onLogout]);
+
+  useEffect(() => {
+    fetchUserProfile();
+    
+    // Check if user came from registration
+    if (location.state?.message) {
+      setShowWelcomeMessage(true);
+      // Clear the message from location state
+      navigate(location.pathname, { replace: true });
+    }
+  }, [fetchUserProfile, location.pathname, location.state?.message, navigate]);
+
 
   const handleLogout = () => {
     setShowLogoutConfirm(true);

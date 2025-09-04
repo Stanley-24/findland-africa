@@ -43,13 +43,7 @@ const AgentProfileModal: React.FC<AgentProfileModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (isOpen && agentName) {
-      fetchAgentDetails();
-    }
-  }, [isOpen, agentName]);
-
-  const fetchAgentDetails = async () => {
+  const fetchAgentDetails = React.useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -66,7 +60,14 @@ const AgentProfileModal: React.FC<AgentProfileModalProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiUrl, agentName]);
+
+  useEffect(() => {
+    if (isOpen && agentName) {
+      fetchAgentDetails();
+    }
+  }, [isOpen, agentName, fetchAgentDetails]);
+
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-NG', {
