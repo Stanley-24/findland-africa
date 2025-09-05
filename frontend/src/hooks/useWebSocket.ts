@@ -33,7 +33,8 @@ export const useWebSocket = ({
 
     try {
       // Connect to global notification WebSocket (not room-specific)
-      const wsUrl = `${apiUrl.replace('http', 'ws')}/api/v1/chat/ws/notifications?user_id=${userId}`;
+      const wsBaseUrl = process.env.REACT_APP_WS_URL || apiUrl.replace('http', 'ws');
+      const wsUrl = `${wsBaseUrl}/api/v1/chat/ws/notifications?user_id=${userId}`;
       wsRef.current = new WebSocket(wsUrl);
 
       wsRef.current.onopen = () => {
