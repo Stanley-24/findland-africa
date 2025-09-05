@@ -1,10 +1,50 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+
+interface Property {
+  id: string;
+  title: string;
+  description: string;
+  type: 'rent' | 'sale';
+  price: number;
+  location: string;
+  status: string;
+  created_at: string;
+  media?: Array<{
+    id: string;
+    media_type: string;
+    url: string;
+  }>;
+}
 
 const HeroSection: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchType, setSearchType] = useState('all');
+  const [featuredProperty, setFeaturedProperty] = useState<Property | null>(null);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+
+  // Fetch featured property
+  useEffect(() => {
+    const fetchFeaturedProperty = async () => {
+      try {
+        const response = await fetch(`${apiUrl}/api/v1/properties/?limit=1`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data.length > 0) {
+            setFeaturedProperty(data[0]);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching featured property:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchFeaturedProperty();
+  }, [apiUrl]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,6 +58,15 @@ const HeroSection: React.FC = () => {
       }
       navigate(`/properties?${params.toString()}`);
     }
+  };
+
+  const formatPrice = (price: number) => {
+    if (price >= 1000000) {
+      return `₦${(price / 1000000).toFixed(1)}M`;
+    } else if (price >= 1000) {
+      return `₦${(price / 1000).toFixed(0)}K`;
+    }
+    return `₦${price.toLocaleString()}`;
   };
 
   return (
@@ -87,30 +136,85 @@ const HeroSection: React.FC = () => {
             </div>
           </div>
 
-          {/* Right Side - Visual Element */}
+          {/* Right Side - Featured Property Card */}
           <div className="relative">
-            <div className="bg-white rounded-2xl shadow-2xl p-8 border border-gray-100">
-              {/* Mock Property Card */}
-              <div className="space-y-4">
-                <div className="aspect-video bg-gradient-to-br from-blue-100 to-blue-200 rounded-lg flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-3">
-                      <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                      </svg>
+            <div className="bg-white rounded-2xl shadow-2xl p-6 border border-gray-100 hover:shadow-3xl transition-shadow duration-300">
+              {loading ? (
+                <div className="space-y-4">
+                  <div className="aspect-video bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg animate-pulse"></div>
+                  <div className="space-y-2">
+                    <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+                    <div className="h-3 bg-gray-200 rounded animate-pulse w-2/3"></div>
+                    <div className="flex justify-between items-center">
+                      <div className="h-6 bg-gray-200 rounded animate-pulse w-20"></div>
+                      <div className="h-4 bg-gray-200 rounded animate-pulse w-16"></div>
                     </div>
-                    <p className="text-blue-600 font-medium">Property Preview</p>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <h3 className="font-semibold text-gray-900">Beautiful 3-Bedroom Apartment</h3>
-                  <p className="text-gray-600 text-sm">Victoria Island, Lagos</p>
-                  <div className="flex justify-between items-center">
-                    <span className="text-2xl font-bold text-blue-600">₦2.8M</span>
-                    <span className="text-sm text-gray-500">For Rent</span>
+              ) : featuredProperty ? (
+                <div className="space-y-4">
+                  {/* Property Image */}
+                  <div className="aspect-video rounded-lg overflow-hidden">
+                    {featuredProperty.media && featuredProperty.media.length > 0 ? (
+                      <img
+                        src={featuredProperty.media[0].url}
+                        alt={featuredProperty.title}
+                        className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          target.nextElementSibling?.classList.remove('hidden');
+                        }}
+                      />
+                    ) : null}
+                    <div className={`w-full h-full bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center ${featuredProperty.media && featuredProperty.media.length > 0 ? 'hidden' : ''}`}>
+                      <div className="text-center">
+                        <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                          <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                          </svg>
+                        </div>
+                        <p className="text-blue-600 font-medium">Property Preview</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Property Details */}
+                  <div className="space-y-2">
+                    <h3 className="font-semibold text-gray-900 text-lg leading-tight">
+                      {featuredProperty.title}
+                    </h3>
+                    <p className="text-gray-600 text-sm">{featuredProperty.location}</p>
+                    <div className="flex justify-between items-center">
+                      <span className="text-2xl font-bold text-blue-600">
+                        {formatPrice(featuredProperty.price)}
+                      </span>
+                      <span className="text-sm text-gray-500 capitalize">
+                        {featuredProperty.type === 'rent' ? 'For Rent' : 'For Sale'}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => navigate(`/properties/${featuredProperty.id}`)}
+                      className="w-full mt-3 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+                    >
+                      View Details
+                    </button>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="aspect-video bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="w-16 h-16 bg-gray-400 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                        </svg>
+                      </div>
+                      <p className="text-gray-500 font-medium">No Properties Available</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
             
             {/* Decorative Elements */}
