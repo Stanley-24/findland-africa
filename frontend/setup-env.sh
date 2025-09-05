@@ -32,8 +32,8 @@ fi
 echo "📝 Creating .env.production file for production..."
 cat > .env.production << EOF
 # Production environment variables
-REACT_APP_API_URL=https://findland-africa-backend.onrender.com
-REACT_APP_WS_URL=wss://findland-africa-backend.onrender.com
+REACT_APP_API_URL=https://findland-africa.onrender.com
+REACT_APP_WS_URL=wss://findland-africa.onrender.com
 EOF
 
 echo "✅ .env.production file created for production"
@@ -47,8 +47,8 @@ echo "   - REACT_APP_API_URL=http://localhost:8000"
 echo "   - REACT_APP_WS_URL=ws://localhost:8000"
 echo ""
 echo "   Production:"
-echo "   - REACT_APP_API_URL=https://findland-africa-backend.onrender.com"
-echo "   - REACT_APP_WS_URL=wss://findland-africa-backend.onrender.com"
+echo "   - REACT_APP_API_URL=https://findland-africa.onrender.com"
+echo "   - REACT_APP_WS_URL=wss://findland-africa.onrender.com"
 echo ""
 echo "💡 To start development:"
 echo "   npm start"
