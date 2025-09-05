@@ -103,6 +103,7 @@ venv.bak/
 .env.development.local
 .env.test.local
 .env.production.local
+.env.real
 env.example
 
 # IDE
