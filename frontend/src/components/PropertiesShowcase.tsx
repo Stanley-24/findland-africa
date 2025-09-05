@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import OnboardingForm from './OnboardingForm';
 
 interface Property {
@@ -40,6 +41,7 @@ const PropertiesShowcase: React.FC<PropertiesShowcaseProps> = ({ apiUrl }) => {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingType, setOnboardingType] = useState<'loan' | 'contact' | 'purchase'>('contact');
   const [onboardingProperty, setOnboardingProperty] = useState<Property | null>(null);
+  const navigate = useNavigate();
 
   const handleOnboardingSubmit = async (data: OnboardingData) => {
     try {
@@ -141,21 +143,34 @@ const PropertiesShowcase: React.FC<PropertiesShowcaseProps> = ({ apiUrl }) => {
   };
 
   const handleChatClick = (property: Property) => {
+    // Check if user is logged in
+    const token = localStorage.getItem('token');
+    if (!token) {
+      // Redirect to signup page if not logged in
+      navigate('/register');
+      return;
+    }
     setOnboardingType('contact');
     setOnboardingProperty(property);
     setShowOnboarding(true);
   };
 
-  const handleLoanClick = (property: Property) => {
-    setOnboardingType('loan');
+  const handleBuyClick = (property: Property) => {
+    // Check if user is logged in
+    const token = localStorage.getItem('token');
+    if (!token) {
+      // Redirect to signup page if not logged in
+      navigate('/register');
+      return;
+    }
+    setOnboardingType('purchase');
     setOnboardingProperty(property);
     setShowOnboarding(true);
   };
 
-  const handleBuyClick = (property: Property) => {
-    setOnboardingType('purchase');
-    setOnboardingProperty(property);
-    setShowOnboarding(true);
+  const handlePropertyClick = (property: Property) => {
+    // Navigate to property detail page
+    navigate(`/properties/${property.id}`);
   };
 
   useEffect(() => {
@@ -241,7 +256,7 @@ const PropertiesShowcase: React.FC<PropertiesShowcaseProps> = ({ apiUrl }) => {
               <div 
                 key={`${property.id}-${index}`}
                 className="flex-shrink-0 w-80 bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow border border-gray-100 overflow-hidden cursor-pointer"
-                onClick={() => setSelectedProperty(property)}
+                onClick={() => handlePropertyClick(property)}
               >
                 {/* Property Image */}
                 <div className="aspect-video bg-gradient-to-br from-blue-100 to-blue-200 relative">
@@ -316,14 +331,14 @@ const PropertiesShowcase: React.FC<PropertiesShowcaseProps> = ({ apiUrl }) => {
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleLoanClick(property);
+                        handleBuyClick(property);
                       }}
-                      className="flex items-center justify-center space-x-1 bg-purple-50 hover:bg-purple-100 text-purple-700 py-2 px-3 rounded-lg text-sm font-medium transition-colors"
+                      className="flex items-center justify-center space-x-1 bg-blue-50 hover:bg-blue-100 text-blue-700 py-2 px-3 rounded-lg text-sm font-medium transition-colors"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13l2.5 5m6-5v6a2 2 0 01-2 2H9a2 2 0 01-2-2v-6m8 0V9a2 2 0 00-2-2H9a2 2 0 00-2 2v4.01" />
                       </svg>
-                      <span>Loan</span>
+                      <span>Buy</span>
                     </button>
                   </div>
                 </div>
@@ -515,10 +530,10 @@ const PropertiesShowcase: React.FC<PropertiesShowcaseProps> = ({ apiUrl }) => {
                         </button>
                         
                         <button
-                          onClick={() => handleLoanClick(selectedProperty)}
-                          className="w-full bg-purple-600 hover:bg-purple-700 text-white py-3 px-6 rounded-lg font-semibold transition-colors"
+                          onClick={() => handleBuyClick(selectedProperty)}
+                          className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg font-semibold transition-colors"
                         >
-                          Apply for Loan
+                          Buy Property
                         </button>
                       </div>
 
