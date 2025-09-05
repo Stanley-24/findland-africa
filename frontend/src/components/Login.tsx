@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getUserIntent, executeUserIntent } from '../utils/userIntent';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -56,8 +57,14 @@ const Login: React.FC = () => {
             (window as any).updateAuthState();
           }
           
-          // Navigate to dashboard instead of reloading
-          navigate('/dashboard');
+          // Check for saved user intent and execute it
+          const userIntent = getUserIntent();
+          if (userIntent) {
+            executeUserIntent(userIntent, navigate);
+          } else {
+            // Navigate to dashboard if no intent
+            navigate('/dashboard');
+          }
         } else {
           setError('Failed to fetch user profile');
         }
