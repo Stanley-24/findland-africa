@@ -10,10 +10,28 @@ services:
       - key: DATABASE_URL
         sync: false
       - key: SECRET_KEY
-        generateValue: true
+        value: september9
+      - key: JWT_SECRET
+        value: september9
       - key: ENVIRONMENT
         value: production
+      - key: DEBUG
+        value: "False"
       - key: CORS_ORIGINS
         value: https://findland-africa.vercel.app
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_BUCKET_NAME
+        value: findland-africa
+      - key: AWS_REGION
+        value: eu-north-1
+      - key: AWS_S3_ACCESS_POINT_ARN
+        value: arn:aws:s3:eu-north-1:623102672512:accesspoint/findland-africa-access
+      - key: AWS_S3_ACCESS_POINT_ALIAS
+        value: findland-africa-acce-kh3e53s6ffgpupnmxpzi663u1dzceeun1b-s3alias
+      - key: AWS_ACCOUNT_ID
+        value: "623102672512"
     healthCheckPath: /health
     autoDeploy: true
