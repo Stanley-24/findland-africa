@@ -79,7 +79,7 @@ CORS_ORIGINS=https://findland-africa.vercel.app
 
 **Environment Variables:**
 ```bash
-REACT_APP_API_URL=https://findland-africa-backend.onrender.com
+REACT_APP_API_URL=https://findland-africa.onrender.com
 REACT_APP_ENVIRONMENT=production
 ```
 
@@ -115,7 +115,7 @@ TWILIO_AUTH_TOKEN=your-twilio-auth-token
 ### Frontend Environment Variables (Vercel)
 ```bash
 # API Configuration
-REACT_APP_API_URL=https://findland-africa-backend.onrender.com
+REACT_APP_API_URL=https://findland-africa.onrender.com
 REACT_APP_ENVIRONMENT=production
 
 # Third-party Services (Future)
@@ -126,9 +126,9 @@ REACT_APP_GOOGLE_MAPS_API_KEY=your-google-maps-api-key
 ## 🧪 Step 5: Testing Production Deployment
 
 ### Test Backend
-1. Visit: `https://findland-africa-backend.onrender.com/`
-2. Check API docs: `https://findland-africa-backend.onrender.com/docs`
-3. Health check: `https://findland-africa-backend.onrender.com/health`
+1. Visit: `https://findland-africa.onrender.com/`
+2. Check API docs: `https://findland-africa.onrender.com/docs`
+3. Health check: `https://findland-africa.onrender.com/health`
 
 ### Test Frontend
 1. Visit: `https://findland-africa.vercel.app`
