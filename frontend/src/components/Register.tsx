@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { getUserIntent, executeUserIntent } from '../utils/userIntent';
 
 const Register: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -95,12 +96,18 @@ const Register: React.FC = () => {
         localStorage.setItem('token', loginData.access_token);
         localStorage.setItem('user', JSON.stringify(loginData.user));
         
-        // Redirect to dashboard
-        navigate('/dashboard', { 
-          state: { 
-            message: 'Account created successfully! Welcome to your dashboard.' 
-          } 
-        });
+        // Check for saved user intent and execute it
+        const userIntent = getUserIntent();
+        if (userIntent) {
+          executeUserIntent(userIntent, navigate);
+        } else {
+          // Redirect to dashboard if no intent
+          navigate('/dashboard', { 
+            state: { 
+              message: 'Account created successfully! Welcome to your dashboard.' 
+            } 
+          });
+        }
       } else {
         // If auto-login fails, redirect to login page
         navigate('/login', { 

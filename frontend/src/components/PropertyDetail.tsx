@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
+import { getUserIntent, executeUserIntent, clearUserIntent } from '../utils/userIntent';
 
 interface Property {
   id: string;
@@ -31,6 +32,7 @@ interface PropertyDetailProps {
 const PropertyDetail: React.FC<PropertyDetailProps> = ({ apiUrl }) => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -44,6 +46,22 @@ const PropertyDetail: React.FC<PropertyDetailProps> = ({ apiUrl }) => {
       fetchProperty();
     }
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Handle user intent execution after property loads
+  useEffect(() => {
+    if (property && !loading) {
+      const action = searchParams.get('action');
+      if (action === 'chat') {
+        setShowChatModal(true);
+        // Clean up URL parameter
+        navigate(`/properties/${property.id}`, { replace: true });
+      } else if (action === 'buy') {
+        setShowBuyModal(true);
+        // Clean up URL parameter
+        navigate(`/properties/${property.id}`, { replace: true });
+      }
+    }
+  }, [property, loading, searchParams, navigate]);
 
   // Keyboard navigation for image gallery
   useEffect(() => {
@@ -109,10 +127,46 @@ const PropertyDetail: React.FC<PropertyDetailProps> = ({ apiUrl }) => {
   };
 
   const handleBuy = () => {
+    // Check if user is logged in
+    const token = localStorage.getItem('token');
+    if (!token) {
+      // Save user intent for buy action
+      const userIntent = {
+        action: 'buy',
+        property_id: property?.id,
+        property_title: property?.title,
+        agent_name: property?.agent_name,
+        agent_email: property?.agent_email,
+        timestamp: Date.now()
+      };
+      localStorage.setItem('userIntent', JSON.stringify(userIntent));
+      
+      // Redirect to signup page
+      navigate('/register');
+      return;
+    }
     setShowBuyModal(true);
   };
 
   const handleChat = () => {
+    // Check if user is logged in
+    const token = localStorage.getItem('token');
+    if (!token) {
+      // Save user intent for chat action
+      const userIntent = {
+        action: 'chat',
+        property_id: property?.id,
+        property_title: property?.title,
+        agent_name: property?.agent_name,
+        agent_email: property?.agent_email,
+        timestamp: Date.now()
+      };
+      localStorage.setItem('userIntent', JSON.stringify(userIntent));
+      
+      // Redirect to signup page
+      navigate('/register');
+      return;
+    }
     setShowChatModal(true);
   };
 
