@@ -25,15 +25,20 @@ const HeroSection: React.FC = () => {
   const navigate = useNavigate();
   const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
-  // Fetch featured property
+  // Fetch featured property with images
   useEffect(() => {
     const fetchFeaturedProperty = async () => {
       try {
-        const response = await fetch(`${apiUrl}/api/v1/properties/?limit=1`);
+        const response = await fetch(`${apiUrl}/api/v1/properties/?limit=10`);
         if (response.ok) {
           const data = await response.json();
           if (data && data.length > 0) {
-            setFeaturedProperty(data[0]);
+            // Find the first property that has media/images
+            const propertyWithMedia = data.find((property: Property) => 
+              property.media && property.media.length > 0
+            );
+            // If no property with media found, use the first property
+            setFeaturedProperty(propertyWithMedia || data[0]);
           }
         }
       } catch (error) {
