@@ -31,7 +31,7 @@ const PropertiesTab: React.FC<PropertiesTabProps> = ({
   const [propertyFilter, setPropertyFilter] = useState<'all' | 'sale' | 'rent'>('all');
   const [chatLoading, setChatLoading] = useState<string | null>(null); // Track which property is loading
   const navigate = useNavigate();
-  const { getChatRoomByPropertyId, hasSentMessageToProperty } = useDataCache();
+  const { getChatRoomByPropertyId } = useDataCache();
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Hover-based preloading with debouncing - ONLY CACHE, NO MESSAGE SENDING
