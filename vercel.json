@@ -18,17 +18,31 @@
       "src": "/static/(.*)",
       "dest": "/frontend/static/$1",
       "headers": {
-        "Cache-Control": "public, max-age=31536000, immutable",
-        "Content-Encoding": "br"
+        "Cache-Control": "public, max-age=31536000, immutable"
       }
     },
     {
-      "src": "/.*\\.(js|css|png|jpg|jpeg|gif|svg|ico|json)",
+      "src": "/.*\\.(js|css|png|jpg|jpeg|gif|svg|ico|json)$",
       "dest": "/frontend/$1",
       "headers": {
-        "Cache-Control": "public, max-age=31536000, immutable",
-        "Content-Encoding": "br"
+        "Cache-Control": "public, max-age=31536000, immutable"
       }
+    },
+    {
+      "src": "/favicon.ico",
+      "dest": "/frontend/favicon.ico"
+    },
+    {
+      "src": "/favicon-32x32.png",
+      "dest": "/frontend/favicon-32x32.png"
+    },
+    {
+      "src": "/favicon-16x16.png",
+      "dest": "/frontend/favicon-16x16.png"
+    },
+    {
+      "src": "/site.webmanifest",
+      "dest": "/frontend/site.webmanifest"
     },
     {
       "src": "/(.*)",
