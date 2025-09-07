@@ -1,12 +1,25 @@
 {
-  "rewrites": [
+  "builds": [
     {
-      "source": "/api/(.*)",
-      "destination": "https://findland-africa.onrender.com/api/$1"
+      "src": "frontend/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "build"
+      }
     },
     {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "src": "backend/requirements.txt",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "backend/main.py"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "frontend/index.html"
     }
   ],
   "env": {
