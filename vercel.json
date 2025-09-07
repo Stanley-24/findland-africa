@@ -26,6 +26,10 @@
       "dest": "/frontend/favicon.ico"
     },
     {
+      "src": "/site.webmanifest",
+      "dest": "/frontend/site.webmanifest"
+    },
+    {
       "src": "/(.*)",
       "dest": "frontend/index.html"
     }
