@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { useNotifications } from '../contexts/NotificationContext';
 
 interface WebSocketMessage {
@@ -26,19 +26,55 @@ export const useWebSocket = ({
 }: UseWebSocketProps) => {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const maxReconnectAttempts = 5;
+  const lastConnectTimeRef = useRef(0);
+  const minConnectInterval = 2000; // Minimum 2 seconds between connection attempts
+  const [isConnected, setIsConnected] = useState(false);
   const { addNotification } = useNotifications();
 
   const connect = useCallback(() => {
-    if (!userId) return;
+    if (!userId) {
+      console.log('WebSocket: No userId provided, skipping connection');
+      return;
+    }
+
+    // Don't create multiple connections
+    if (wsRef.current && (wsRef.current.readyState === WebSocket.CONNECTING || wsRef.current.readyState === WebSocket.OPEN)) {
+      console.log('WebSocket: Already connected or connecting, skipping');
+      return;
+    }
+
+    // Debounce connection attempts
+    const now = Date.now();
+    if (now - lastConnectTimeRef.current < minConnectInterval) {
+      console.log('WebSocket: Connection attempt too soon, skipping');
+      return;
+    }
+    lastConnectTimeRef.current = now;
+
+    // Clean up any existing connection before creating a new one
+    if (wsRef.current) {
+      wsRef.current.onclose = null;
+      wsRef.current.onerror = null;
+      wsRef.current.onmessage = null;
+      wsRef.current.onopen = null;
+      wsRef.current.close();
+      wsRef.current = null;
+    }
 
     try {
       // Connect to global notification WebSocket (not room-specific)
       const wsBaseUrl = process.env.REACT_APP_WS_URL || apiUrl.replace('http', 'ws');
       const wsUrl = `${wsBaseUrl}/api/v1/chat/ws/notifications?user_id=${userId}`;
+      console.log('WebSocket: Attempting to connect to', wsUrl);
       wsRef.current = new WebSocket(wsUrl);
 
       wsRef.current.onopen = () => {
         console.log('WebSocket connected for notifications');
+        setIsConnected(true);
+        // Reset reconnect attempts on successful connection
+        reconnectAttemptsRef.current = 0;
         // Clear any pending reconnection
         if (reconnectTimeoutRef.current) {
           clearTimeout(reconnectTimeoutRef.current);
@@ -65,7 +101,13 @@ export const useWebSocket = ({
               
               // Call the onMessage callback if provided
               if (onMessage) {
-                onMessage(message.data);
+                // Pass the message data with room_id and sender info
+                onMessage({
+                  ...message.data,
+                  room_id: message.room_id,
+                  sender_id: message.sender_id,
+                  sender_name: message.sender_name
+                });
               }
               break;
 
@@ -95,12 +137,22 @@ export const useWebSocket = ({
         }
       };
 
-      wsRef.current.onclose = () => {
-        console.log('WebSocket disconnected');
-        // Attempt to reconnect after 3 seconds
-        reconnectTimeoutRef.current = setTimeout(() => {
-          connect();
-        }, 3000);
+      wsRef.current.onclose = (event) => {
+        console.log('WebSocket disconnected', event.code, event.reason);
+        setIsConnected(false);
+        
+        // Only attempt to reconnect if we haven't exceeded max attempts
+        if (reconnectAttemptsRef.current < maxReconnectAttempts) {
+          reconnectAttemptsRef.current++;
+          const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 10000); // Exponential backoff, max 10s
+          console.log(`WebSocket: Attempting to reconnect in ${delay}ms (attempt ${reconnectAttemptsRef.current}/${maxReconnectAttempts})`);
+          
+          reconnectTimeoutRef.current = setTimeout(() => {
+            connect();
+          }, delay);
+        } else {
+          console.log('WebSocket: Max reconnection attempts reached, giving up');
+        }
       };
 
       wsRef.current.onerror = (error) => {
@@ -113,15 +165,23 @@ export const useWebSocket = ({
   }, [apiUrl, userId, addNotification, onMessage, onTyping]);
 
   const disconnect = useCallback(() => {
+    console.log('WebSocket: Disconnecting...');
+    setIsConnected(false);
+    
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
     }
     
     if (wsRef.current) {
+      // Don't attempt to reconnect when manually disconnecting
+      wsRef.current.onclose = null;
       wsRef.current.close();
       wsRef.current = null;
     }
+    
+    // Reset reconnect attempts
+    reconnectAttemptsRef.current = 0;
   }, []);
 
   const sendMessage = useCallback((message: any) => {
@@ -131,14 +191,49 @@ export const useWebSocket = ({
   }, []);
 
   useEffect(() => {
-    connect();
+    // Only connect if we have a valid userId
+    if (userId) {
+      // Only connect if not already connected
+      if (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED) {
+        connect();
+      }
+    }
+    
     return () => {
       disconnect();
     };
-  }, [connect, disconnect]);
+  }, [userId, connect, disconnect]);
+
+  const sendTypingIndicator = useCallback(async (roomId: string, isTyping: boolean) => {
+    if (!roomId) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      
+      const endpoint = isTyping 
+        ? `/api/v1/fast/chat/rooms/${roomId}/typing`
+        : `/api/v1/fast/chat/rooms/${roomId}/typing/stop`;
+      
+      const response = await fetch(`${apiUrl}${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        console.error('Failed to send typing indicator:', response.status);
+      }
+    } catch (error) {
+      console.error('Error sending typing indicator:', error);
+    }
+  }, [apiUrl]);
 
   return {
     sendMessage,
-    isConnected: wsRef.current?.readyState === WebSocket.OPEN
+    sendTypingIndicator,
+    isConnected
   };
 };

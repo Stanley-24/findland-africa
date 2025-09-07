@@ -55,10 +55,12 @@ class Escrow(Base):
     dispute_resolved_at = Column(DateTime(timezone=True), nullable=True)
 
     # Relationships
-    property = relationship("Property", back_populates="escrow_transactions")
-    buyer = relationship("User", foreign_keys=[buyer_id], back_populates="escrow_as_buyer")
-    seller = relationship("User", foreign_keys=[seller_id], back_populates="escrow_as_seller")
-    chat_room = relationship("ChatRoom", back_populates="escrow")
+    # Temporarily disable for local development
+    # property = relationship("Property", back_populates="escrow_transactions")
+    # buyer = relationship("User", foreign_keys=[buyer_id], back_populates="escrow_as_buyer")
+    # seller = relationship("User", foreign_keys=[seller_id], back_populates="escrow_as_seller")
+    # Temporarily disable for local development
+    # chat_room = relationship("ChatRoom", back_populates="escrow")
 
     def __repr__(self):
         return f"<Escrow(id={self.id}, amount={self.amount}, status={self.status})>"

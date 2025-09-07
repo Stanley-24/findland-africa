@@ -33,6 +33,7 @@ class EscrowCancel(BaseModel):
 class EscrowDispute(BaseModel):
     dispute_reason: str = Field(..., max_length=1000, description="Reason for dispute")
 
+
 class EscrowInDB(EscrowBase):
     id: str
     buyer_id: str

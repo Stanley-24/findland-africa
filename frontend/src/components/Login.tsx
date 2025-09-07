@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getUserIntent, executeUserIntent } from '../utils/userIntent';
+import { apiLogin, getCurrentUserProfile } from '../utils/api';
+import { clearAuthData, setAuthData } from '../utils/auth';
+import ErrorMessage from './common/ErrorMessage';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -8,8 +11,6 @@ const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
-
-  const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
   const handleDemoLogin = (demoEmail: string, demoPassword: string) => {
     setEmail(demoEmail);
@@ -22,35 +23,23 @@ const Login: React.FC = () => {
     setError('');
 
     // Clear any existing user data to ensure fresh login
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
+    clearAuthData();
 
     try {
-      const response = await fetch(`${apiUrl}/api/v1/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          username: email,
-          password: password,
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        localStorage.setItem('token', data.access_token);
+      // Login using the new API utility
+      const loginResponse = await apiLogin(email, password);
+      
+      if (loginResponse.success && loginResponse.data) {
+        const { access_token } = loginResponse.data;
         
-        // Fetch user profile to get user data
-        const userResponse = await fetch(`${apiUrl}/api/v1/auth/me`, {
-          headers: {
-            'Authorization': `Bearer ${data.access_token}`,
-          },
-        });
+        // Store the token first
+        localStorage.setItem('token', access_token);
         
-        if (userResponse.ok) {
-          const userData = await userResponse.json();
-          localStorage.setItem('user', JSON.stringify(userData));
+        // Fetch user profile using the new API utility
+        const userResponse = await getCurrentUserProfile();
+        
+        if (userResponse.success && userResponse.data) {
+          setAuthData(access_token, userResponse.data);
           
           // Update authentication state in App component
           if ((window as any).updateAuthState) {
@@ -66,11 +55,10 @@ const Login: React.FC = () => {
             navigate('/dashboard');
           }
         } else {
-          setError('Failed to fetch user profile');
+          setError(userResponse.error || 'Failed to fetch user profile');
         }
       } else {
-        const errorData = await response.json();
-        setError(errorData.detail || 'Login failed');
+        setError(loginResponse.error || 'Login failed');
       }
     } catch (err) {
       setError('Network error. Please try again.');
@@ -80,47 +68,42 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="flex justify-center">
-          <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-xl">F</span>
+        {/* Logo Section */}
+        <div className="flex justify-center mb-8">
+          <div className="relative">
+            <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center shadow-lg">
+              <span className="text-white font-bold text-2xl">F</span>
+            </div>
+            <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl blur opacity-30"></div>
           </div>
         </div>
-        <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">
-          Sign in to FindLand Africa
-        </h2>
-        <p className="mt-2 text-center text-sm text-gray-600">
-          Access your account to manage properties and transactions
-        </p>
+        
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent mb-2">
+            Welcome Back
+          </h1>
+          <p className="text-lg text-gray-600 font-medium">
+            Sign in to FindLand Africa
+          </p>
+          <p className="mt-2 text-sm text-gray-500">
+            Access your account to manage properties and transactions
+          </p>
+        </div>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+        <div className="bg-white/80 backdrop-blur-sm py-10 px-8 shadow-2xl border border-white/20 rounded-3xl">
           <form className="space-y-6" onSubmit={handleSubmit}>
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-md p-4">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                  <div className="ml-3">
-                    <h3 className="text-sm font-medium text-red-800">Error</h3>
-                    <div className="mt-2 text-sm text-red-700">
-                      <p>{error}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+            {error && <ErrorMessage message={error} />}
 
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email address
-              </label>
-              <div className="mt-1">
+            <div className="space-y-5">
+              <div>
+                <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
+                  Email Address
+                </label>
                 <input
                   id="email"
                   name="email"
@@ -129,17 +112,15 @@ const Login: React.FC = () => {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  placeholder="Enter your email"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 placeholder-gray-400 text-gray-900 font-medium"
+                  placeholder="Enter your email address"
                 />
               </div>
-            </div>
 
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
-              </label>
-              <div className="mt-1">
+              <div>
+                <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
+                  Password
+                </label>
                 <input
                   id="password"
                   name="password"
@@ -148,109 +129,177 @@ const Login: React.FC = () => {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 placeholder-gray-400 text-gray-900 font-medium"
                   placeholder="Enter your password"
                 />
               </div>
             </div>
 
-            <div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? 'Signing in...' : 'Sign in'}
-              </button>
-            </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+            >
+              {loading ? (
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
+                  Signing in...
+                </div>
+              ) : (
+                'Sign In'
+              )}
+            </button>
 
-            <div className="text-center">
+            <div className="text-center pt-4">
               <p className="text-sm text-gray-600">
                 Don't have an account?{' '}
                 <button
                   type="button"
                   onClick={() => navigate('/register')}
-                  className="font-medium text-blue-600 hover:text-blue-500"
+                  className="font-semibold text-blue-600 hover:text-blue-700 transition-colors duration-200"
                 >
-                  Sign up
+                  Create Account
                 </button>
               </p>
             </div>
 
-            <div className="mt-6">
+            <div className="mt-8">
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-300" />
+                  <div className="w-full border-t border-gray-200" />
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-gray-500">Demo Credentials</span>
+                  <span className="px-4 bg-white text-gray-500 font-medium">Demo Credentials</span>
                 </div>
               </div>
               
-              <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h3 className="text-sm font-medium text-blue-800 mb-3">Click any account to auto-fill credentials:</h3>
-                <div className="space-y-2">
+              <div className="mt-6 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 border border-blue-200/50 rounded-2xl p-6 shadow-lg">
+                <h3 className="text-sm font-semibold text-blue-900 mb-5 text-center">Click any account to auto-fill credentials:</h3>
+                <div className="grid grid-cols-1 gap-4">
                   <button
                     type="button"
                     onClick={() => handleDemoLogin('adebayo.johnson@findland.africa', 'password123')}
-                    className="w-full text-left p-2 bg-white border border-blue-200 rounded-md hover:bg-blue-50 transition-colors"
+                    className="group w-full text-left p-5 bg-white/90 backdrop-blur-sm border border-green-200/60 rounded-2xl hover:bg-white hover:shadow-xl hover:border-green-300/80 transition-all duration-300 transform hover:scale-[1.02] hover:-translate-y-1"
                   >
                     <div className="flex items-center justify-between">
-                      <div>
-                        <span className="text-sm font-medium text-blue-800">👤 Buyer</span>
-                        <p className="text-xs text-blue-600">adebayo.johnson@findland.africa</p>
+                      <div className="flex items-center space-x-4">
+                        <div className="w-12 h-12 bg-gradient-to-br from-green-100 to-emerald-100 rounded-full flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow duration-300">
+                          <span className="text-2xl">👤</span>
+                        </div>
+                        <div>
+                          <span className="text-base font-bold text-gray-800 group-hover:text-green-700 transition-colors duration-300">Buyer</span>
+                          <p className="text-xs text-gray-600 font-medium mt-1">adebayo.johnson@findland.africa</p>
+                        </div>
                       </div>
-                      <span className="text-xs text-blue-500">Click to use</span>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs text-white font-semibold bg-green-500 px-3 py-1.5 rounded-full group-hover:bg-green-600 transition-all duration-300 shadow-sm">
+                          Use
+                        </span>
+                        <svg className="w-3 h-3 text-green-500 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
                     </div>
                   </button>
                   
                   <button
                     type="button"
                     onClick={() => handleDemoLogin('sarah.williams@findland.africa', 'password123')}
-                    className="w-full text-left p-2 bg-white border border-blue-200 rounded-md hover:bg-blue-50 transition-colors"
+                    className="group w-full text-left p-5 bg-white/90 backdrop-blur-sm border border-purple-200/60 rounded-2xl hover:bg-white hover:shadow-xl hover:border-purple-300/80 transition-all duration-300 transform hover:scale-[1.02] hover:-translate-y-1"
                   >
                     <div className="flex items-center justify-between">
-                      <div>
-                        <span className="text-sm font-medium text-blue-800">🏠 Seller</span>
-                        <p className="text-xs text-blue-600">sarah.williams@findland.africa</p>
+                      <div className="flex items-center space-x-4">
+                        <div className="w-12 h-12 bg-gradient-to-br from-purple-100 to-violet-100 rounded-full flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow duration-300">
+                          <span className="text-2xl">🏠</span>
+                        </div>
+                        <div>
+                          <span className="text-base font-bold text-gray-800 group-hover:text-purple-700 transition-colors duration-300">Seller</span>
+                          <p className="text-xs text-gray-600 font-medium mt-1">sarah.williams@findland.africa</p>
+                        </div>
                       </div>
-                      <span className="text-xs text-blue-500">Click to use</span>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs text-white font-semibold bg-purple-500 px-3 py-1.5 rounded-full group-hover:bg-purple-600 transition-all duration-300 shadow-sm">
+                          Use
+                        </span>
+                        <svg className="w-3 h-3 text-purple-500 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
                     </div>
                   </button>
                   
                   <button
                     type="button"
                     onClick={() => handleDemoLogin('michael.okafor@findland.africa', 'password123')}
-                    className="w-full text-left p-2 bg-white border border-blue-200 rounded-md hover:bg-blue-50 transition-colors"
+                    className="group w-full text-left p-5 bg-white/90 backdrop-blur-sm border border-orange-200/60 rounded-2xl hover:bg-white hover:shadow-xl hover:border-orange-300/80 transition-all duration-300 transform hover:scale-[1.02] hover:-translate-y-1"
                   >
                     <div className="flex items-center justify-between">
-                      <div>
-                        <span className="text-sm font-medium text-blue-800">🤝 Agent</span>
-                        <p className="text-xs text-blue-600">michael.okafor@findland.africa</p>
+                      <div className="flex items-center space-x-4">
+                        <div className="w-12 h-12 bg-gradient-to-br from-orange-100 to-amber-100 rounded-full flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow duration-300">
+                          <span className="text-2xl">🤝</span>
+                        </div>
+                        <div>
+                          <span className="text-base font-bold text-gray-800 group-hover:text-orange-700 transition-colors duration-300">Agent</span>
+                          <p className="text-xs text-gray-600 font-medium mt-1">michael.okafor@findland.africa</p>
+                        </div>
                       </div>
-                      <span className="text-xs text-blue-500">Click to use</span>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs text-white font-semibold bg-orange-500 px-3 py-1.5 rounded-full group-hover:bg-orange-600 transition-all duration-300 shadow-sm">
+                          Use
+                        </span>
+                        <svg className="w-3 h-3 text-orange-500 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
                     </div>
                   </button>
                   
                   <button
                     type="button"
                     onClick={() => handleDemoLogin('grace.adebayo@findland.africa', 'password123')}
-                    className="w-full text-left p-2 bg-white border border-blue-200 rounded-md hover:bg-blue-50 transition-colors"
+                    className="group w-full text-left p-5 bg-white/90 backdrop-blur-sm border border-red-200/60 rounded-2xl hover:bg-white hover:shadow-xl hover:border-red-300/80 transition-all duration-300 transform hover:scale-[1.02] hover:-translate-y-1"
                   >
                     <div className="flex items-center justify-between">
-                      <div>
-                        <span className="text-sm font-medium text-blue-800">⚙️ Admin</span>
-                        <p className="text-xs text-blue-600">grace.adebayo@findland.africa</p>
+                      <div className="flex items-center space-x-4">
+                        <div className="w-12 h-12 bg-gradient-to-br from-red-100 to-rose-100 rounded-full flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow duration-300">
+                          <span className="text-2xl">⚙️</span>
+                        </div>
+                        <div>
+                          <span className="text-base font-bold text-gray-800 group-hover:text-red-700 transition-colors duration-300">Admin</span>
+                          <p className="text-xs text-gray-600 font-medium mt-1">grace.adebayo@findland.africa</p>
+                        </div>
                       </div>
-                      <span className="text-xs text-blue-500">Click to use</span>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs text-white font-semibold bg-red-500 px-3 py-1.5 rounded-full group-hover:bg-red-600 transition-all duration-300 shadow-sm">
+                          Use
+                        </span>
+                        <svg className="w-3 h-3 text-red-500 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
                     </div>
                   </button>
                 </div>
-                <p className="mt-3 text-xs text-blue-600 text-center">
-                  <strong>Password for all accounts:</strong> password123
-                </p>
-                <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-700">
-                  <strong>Note:</strong> If you see the wrong dashboard, clear your browser data or try incognito mode.
+                <div className="mt-6 p-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-blue-200/40 shadow-sm">
+                  <div className="flex items-center justify-center space-x-2 mb-3">
+                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                    </svg>
+                    <p className="text-sm text-blue-800 font-semibold">
+                      <strong>Password for all accounts:</strong> 
+                      <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-700 rounded-md font-mono text-xs">password123</span>
+                    </p>
+                  </div>
+                  <div className="p-3 bg-gradient-to-r from-yellow-50 to-amber-50 border border-yellow-200/60 rounded-xl">
+                    <div className="flex items-start space-x-2">
+                      <svg className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <p className="text-xs text-yellow-800 font-medium">
+                        <strong>Note:</strong> If you see the wrong dashboard, clear your browser data or try incognito mode.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

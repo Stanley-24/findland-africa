@@ -1,7 +1,11 @@
 from pydantic import BaseModel, EmailStr, Field
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from datetime import datetime
 from app.models.user import UserRole
+from app.schemas.agent_application import AgentApplicationCreate
+
+if TYPE_CHECKING:
+    from app.schemas.user import User as UserSchema
 
 class UserBase(BaseModel):
     name: str
@@ -40,3 +44,29 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     email: Optional[str] = None
+
+class AgentRegistrationRequest(BaseModel):
+    """Unified request for agent account creation + application submission"""
+    # User account fields
+    name: str = Field(..., min_length=2, max_length=255)
+    email: EmailStr
+    phone_number: Optional[str] = Field(None, max_length=50)
+    password: str = Field(..., min_length=8)
+    
+    # Agent application fields
+    company_name: Optional[str] = None
+    license_number: Optional[str] = None
+    years_experience: Optional[str] = None
+    specializations: Optional[list] = None
+    portfolio_url: Optional[str] = None
+    linkedin_url: Optional[str] = None
+    motivation: str = Field(..., min_length=50, description="Explain why you want to become an agent")
+    references: Optional[list] = None
+
+class AgentRegistrationResponse(BaseModel):
+    """Response for agent registration"""
+    user_id: str
+    user_name: str
+    user_email: str
+    application_id: str
+    message: str

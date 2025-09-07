@@ -41,7 +41,7 @@ const FeaturesSection: React.FC = () => {
   ];
 
   return (
-    <section className="py-20 lg:py-32 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 relative overflow-hidden">
+    <section className="py-12 lg:py-16 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 relative overflow-hidden">
       {/* Background decorative elements */}
       <div className="absolute inset-0 opacity-40">
         <div className="absolute inset-0" style={{
