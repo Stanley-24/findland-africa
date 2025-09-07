@@ -15,6 +15,9 @@ class ChatRoomUpdate(BaseModel):
     name: Optional[str] = Field(None, max_length=255)
     is_active: Optional[bool] = None
 
+class ChatRoomBatchDelete(BaseModel):
+    room_ids: List[str] = Field(..., min_items=1, description="List of room IDs to delete")
+
 class ChatRoomInDB(ChatRoomBase):
     id: str
     created_by: str

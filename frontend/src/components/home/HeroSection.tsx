@@ -1,15 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { formatPriceCompact } from '../../utils/textUtils';
+import AgentApplicationForm from '../agent/AgentApplicationForm';
+import { saveUserIntent } from '../../utils/userIntent';
+import { useDataCache } from '../../contexts/DataCacheContext';
 
 interface Property {
   id: string;
   title: string;
   description: string;
-  type: 'rent' | 'sale';
+  type: 'rent' | 'sale' | 'land';
   price: number;
   location: string;
-  status: string;
+  status: 'available' | 'pending' | 'sold' | 'rented';
   created_at: string;
+  owner_id: string;
   media?: Array<{
     id: string;
     media_type: string;
@@ -21,35 +26,21 @@ const HeroSection: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchType, setSearchType] = useState('all');
   const [featuredProperty, setFeaturedProperty] = useState<Property | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [showAgentApplication, setShowAgentApplication] = useState(false);
   const navigate = useNavigate();
-  const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+  const { featuredProperties, loading } = useDataCache();
 
-  // Fetch featured property with images
+  // Use cached featured properties
   useEffect(() => {
-    const fetchFeaturedProperty = async () => {
-      try {
-        const response = await fetch(`${apiUrl}/api/v1/properties/?limit=10`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data && data.length > 0) {
-            // Find the first property that has media/images
-            const propertyWithMedia = data.find((property: Property) => 
-              property.media && property.media.length > 0
-            );
-            // If no property with media found, use the first property
-            setFeaturedProperty(propertyWithMedia || data[0]);
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching featured property:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchFeaturedProperty();
-  }, [apiUrl]);
+    if (featuredProperties && featuredProperties.length > 0) {
+      // Find the first property that has media/images
+      const propertyWithMedia = featuredProperties.find((property: Property) => 
+        property.media && property.media.length > 0
+      );
+      // If no property with media found, use the first property
+      setFeaturedProperty(propertyWithMedia || featuredProperties[0]);
+    }
+  }, [featuredProperties]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,17 +56,48 @@ const HeroSection: React.FC = () => {
     }
   };
 
-  const formatPrice = (price: number) => {
-    if (price >= 1000000) {
-      return `₦${(price / 1000000).toFixed(1)}M`;
-    } else if (price >= 1000) {
-      return `₦${(price / 1000).toFixed(0)}K`;
+  // Using shared formatPriceCompactCompact utility
+
+  const handleChatClick = (property: Property) => {
+    // Check if user is logged in
+    const token = localStorage.getItem('token');
+    if (!token) {
+      // Save user intent and redirect to login page
+      const intent = {
+        action: 'chat' as const,
+        property_id: property.id,
+        property_title: property.title,
+        timestamp: Date.now()
+      };
+      saveUserIntent(intent);
+      navigate('/login');
+      return;
     }
-    return `₦${price.toLocaleString()}`;
+    // If logged in, navigate to property detail with chat action
+    navigate(`/properties/${property.id}?action=chat`);
+  };
+
+  const handleBuyClick = (property: Property) => {
+    // Check if user is logged in
+    const token = localStorage.getItem('token');
+    if (!token) {
+      // Save user intent and redirect to login page
+      const intent = {
+        action: 'purchase' as const,
+        property_id: property.id,
+        property_title: property.title,
+        timestamp: Date.now()
+      };
+      saveUserIntent(intent);
+      navigate('/login');
+      return;
+    }
+    // If logged in, navigate to property detail with buy action
+    navigate(`/properties/${property.id}?action=buy`);
   };
 
   return (
-    <section className="bg-gradient-to-br from-blue-50 to-white py-16 lg:py-24">
+    <section className="bg-gradient-to-br from-blue-50 to-white py-8 lg:py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           {/* Left Side - Content */}
@@ -192,17 +214,35 @@ const HeroSection: React.FC = () => {
                     <p className="text-gray-600 text-sm">{featuredProperty.location}</p>
                     <div className="flex justify-between items-center">
                       <span className="text-2xl font-bold text-blue-600">
-                        {formatPrice(featuredProperty.price)}
+                        {formatPriceCompact(featuredProperty.price)}
                       </span>
                       <span className="text-sm text-gray-500 capitalize">
                         {featuredProperty.type === 'rent' ? 'For Rent' : 'For Sale'}
                       </span>
                     </div>
+                    {/* Action Buttons */}
+                    <div className="grid grid-cols-2 gap-2 mt-3">
+                      <button
+                        onClick={() => navigate(`/properties/${featuredProperty.id}`)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-3 rounded-lg text-sm font-medium transition-colors"
+                        title="View full property details"
+                      >
+                        View Details
+                      </button>
+                      <button
+                        onClick={() => handleChatClick(featuredProperty)}
+                        className="bg-green-600 hover:bg-green-700 text-white py-2 px-3 rounded-lg text-sm font-medium transition-colors"
+                        title={!localStorage.getItem('token') ? 'Login required to start chat' : 'Start chat with property owner'}
+                      >
+                        Chat
+                      </button>
+                    </div>
                     <button
-                      onClick={() => navigate(`/properties/${featuredProperty.id}`)}
-                      className="w-full mt-3 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+                      onClick={() => handleBuyClick(featuredProperty)}
+                      className="w-full mt-2 bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+                      title={!localStorage.getItem('token') ? 'Login required to express interest' : 'Express interest to buy this property'}
                     >
-                      View Details
+                      Express Interest
                     </button>
                   </div>
                 </div>
@@ -228,6 +268,96 @@ const HeroSection: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Agent Promotion Section */}
+      <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-800 py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+              🤝 Join Our Network of Real Estate Professionals
+            </h2>
+            <p className="text-xl text-blue-100 mb-8 max-w-3xl mx-auto">
+              Become a verified agent on FindLand Africa and help clients find their dream properties while growing your business.
+            </p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+                <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-white mb-2">Fast Approval</h3>
+                <p className="text-blue-100 text-sm">Get approved within 3-5 business days with our streamlined process</p>
+              </div>
+              
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+                <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-white mb-2">Competitive Commission</h3>
+                <p className="text-blue-100 text-sm">Earn competitive commissions on every successful transaction</p>
+              </div>
+              
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+                <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-white mb-2">Quality Leads</h3>
+                <p className="text-blue-100 text-sm">Access verified leads and connect with serious buyers and sellers</p>
+              </div>
+            </div>
+            
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <button
+                onClick={() => setShowAgentApplication(true)}
+                className="bg-white text-blue-600 hover:bg-blue-50 px-8 py-3 rounded-lg font-semibold text-lg transition-colors shadow-lg"
+              >
+                Apply to Become an Agent
+              </button>
+              <button
+                onClick={() => {
+                  const token = localStorage.getItem('token');
+                  if (!token) {
+                    // Save a general browse intent and redirect to login
+                    saveUserIntent({
+                      action: 'chat', // Use chat as default action for browsing
+                      property_id: '', // Empty property_id for general browsing
+                      property_title: 'Browse Properties',
+                      timestamp: Date.now()
+                    });
+                    navigate('/login');
+                  } else {
+                    navigate('/properties');
+                  }
+                }}
+                className="border-2 border-white text-white hover:bg-white hover:text-blue-600 px-8 py-3 rounded-lg font-semibold text-lg transition-colors"
+                title={!localStorage.getItem('token') ? 'Login required to browse properties' : 'Browse all available properties'}
+              >
+                Browse Properties
+              </button>
+            </div>
+            
+            <p className="text-blue-200 text-sm mt-6">
+              Already have an account? <button 
+                onClick={() => navigate('/login')}
+                className="text-white hover:text-blue-100 underline font-medium"
+              >
+                Sign in to apply
+              </button>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Agent Application Modal */}
+      {showAgentApplication && (
+        <AgentApplicationForm onClose={() => setShowAgentApplication(false)} />
+      )}
     </section>
   );
 };

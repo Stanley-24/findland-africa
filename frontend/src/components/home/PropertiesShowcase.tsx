@@ -1,16 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import OnboardingForm from './OnboardingForm';
+import { formatPrice } from '../../utils/textUtils';
+import OnboardingForm from '../OnboardingForm';
+import { saveUserIntent } from '../../utils/userIntent';
+import { useDataCache } from '../../contexts/DataCacheContext';
 
 interface Property {
   id: string;
   title: string;
   description: string;
-  type: 'rent' | 'sale';
+  type: 'rent' | 'sale' | 'land';
   price: number;
   location: string;
-  status: string;
+  status: 'available' | 'pending' | 'sold' | 'rented';
   created_at: string;
+  owner_id: string;
   media?: Array<{
     id: string;
     media_type: string;
@@ -34,14 +38,18 @@ interface OnboardingData {
 }
 
 const PropertiesShowcase: React.FC<PropertiesShowcaseProps> = ({ apiUrl }) => {
+  const { featuredProperties, loading, error } = useDataCache();
   const [properties, setProperties] = useState<Property[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingType, setOnboardingType] = useState<'loan' | 'contact' | 'purchase'>('contact');
   const [onboardingProperty, setOnboardingProperty] = useState<Property | null>(null);
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const [favoriteProperties, setFavoriteProperties] = useState<Set<string>>(new Set());
+  const [favoriteLoading, setFavoriteLoading] = useState<Set<string>>(new Set());
 
   const handleOnboardingSubmit = async (data: OnboardingData) => {
     try {
@@ -62,18 +70,11 @@ const PropertiesShowcase: React.FC<PropertiesShowcaseProps> = ({ apiUrl }) => {
 
       switch (onboardingType) {
         case 'contact':
-          endpoint = '/api/v1/chat/rooms';
+          endpoint = '/api/v1/fast/chat/rooms';
           requestBody = {
             property_id: onboardingProperty.id,
-            room_type: 'property_inquiry',
-            user_info: {
-              full_name: data.fullName,
-              email: data.email,
-              phone: data.phone,
-              purpose: data.purpose,
-              timeline: data.timeline,
-              additional_info: data.additionalInfo
-            }
+            created_by: JSON.parse(localStorage.getItem('user') || '{}').id,
+            name: `Chat about ${onboardingProperty.title}`
           };
           break;
         case 'loan':
@@ -146,8 +147,15 @@ const PropertiesShowcase: React.FC<PropertiesShowcaseProps> = ({ apiUrl }) => {
     // Check if user is logged in
     const token = localStorage.getItem('token');
     if (!token) {
-      // Redirect to signup page if not logged in
-      navigate('/register');
+      // Save user intent and redirect to login page
+      const intent = {
+        action: 'chat' as const,
+        property_id: property.id,
+        property_title: property.title,
+        timestamp: Date.now()
+      };
+      saveUserIntent(intent);
+      navigate('/login');
       return;
     }
     setOnboardingType('contact');
@@ -155,12 +163,96 @@ const PropertiesShowcase: React.FC<PropertiesShowcaseProps> = ({ apiUrl }) => {
     setShowOnboarding(true);
   };
 
+  // Check favorite status for a property
+  const checkFavoriteStatus = async (propertyId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await fetch(`${apiUrl}/api/v1/favorites/${propertyId}/status`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.is_favorited) {
+          setFavoriteProperties(prev => new Set([...Array.from(prev), propertyId]));
+        }
+      }
+    } catch (error) {
+      console.error('Error checking favorite status:', error);
+    }
+  };
+
+  // Toggle favorite status
+  const handleToggleFavorite = async (propertyId: string) => {
+    try {
+      setFavoriteLoading(prev => new Set([...Array.from(prev), propertyId]));
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+
+      const isFavorited = favoriteProperties.has(propertyId);
+
+      if (isFavorited) {
+        // Remove from favorites
+        await fetch(`${apiUrl}/api/v1/favorites/${propertyId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        setFavoriteProperties(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(propertyId);
+          return newSet;
+        });
+      } else {
+        // Add to favorites
+        await fetch(`${apiUrl}/api/v1/favorites/${propertyId}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({})
+        });
+        setFavoriteProperties(prev => new Set([...Array.from(prev), propertyId]));
+      }
+    } catch (error: any) {
+      console.error('Error toggling favorite:', error);
+      if (error.response?.status === 401) {
+        navigate('/login');
+      } else {
+        alert('Failed to update favorites. Please try again.');
+      }
+    } finally {
+      setFavoriteLoading(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(propertyId);
+        return newSet;
+      });
+    }
+  };
+
   const handleBuyClick = (property: Property) => {
     // Check if user is logged in
     const token = localStorage.getItem('token');
     if (!token) {
-      // Redirect to signup page if not logged in
-      navigate('/register');
+      // Save user intent and redirect to login page
+      const intent = {
+        action: 'purchase' as const,
+        property_id: property.id,
+        property_title: property.title,
+        timestamp: Date.now()
+      };
+      saveUserIntent(intent);
+      navigate('/login');
       return;
     }
     setOnboardingType('purchase');
@@ -173,33 +265,93 @@ const PropertiesShowcase: React.FC<PropertiesShowcaseProps> = ({ apiUrl }) => {
     navigate(`/properties/${property.id}`);
   };
 
+  // Mobile detection
   useEffect(() => {
-    const fetchProperties = async () => {
-      try {
-        const response = await fetch(`${apiUrl}/api/v1/properties/?limit=12`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch properties');
-        }
-        const data = await response.json();
-        setProperties(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unknown error');
-      } finally {
-        setLoading(false);
-      }
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
     };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
-    fetchProperties();
-  }, [apiUrl]);
+  // Use cached featured properties
+  useEffect(() => {
+    if (featuredProperties && featuredProperties.length > 0) {
+      setProperties(featuredProperties);
+    }
+  }, [featuredProperties]);
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(price);
+  // Check favorite status for all properties when they load
+  useEffect(() => {
+    if (properties.length > 0) {
+      properties.forEach(property => {
+        checkFavoriteStatus(property.id);
+      });
+    }
+  }, [properties]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Touch handling for mobile sliding
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+
+  const minSwipeDistance = 50;
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
   };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe && currentSlide < properties.length - 1) {
+      setCurrentSlide(currentSlide + 1);
+    }
+    if (isRightSwipe && currentSlide > 0) {
+      setCurrentSlide(currentSlide - 1);
+    }
+  };
+
+  // Auto-scroll to current slide on mobile
+  useEffect(() => {
+    if (isMobile && scrollContainerRef.current) {
+      const container = scrollContainerRef.current;
+      const cardWidth = 320; // Width of each property card
+      const gap = 24; // Gap between cards
+      const scrollPosition = currentSlide * (cardWidth + gap);
+      
+      container.scrollTo({
+        left: scrollPosition,
+        behavior: 'smooth'
+      });
+    }
+  }, [currentSlide, isMobile]);
+
+  // Arrow navigation functions
+  const goToPrevious = () => {
+    if (currentSlide > 0) {
+      setCurrentSlide(currentSlide - 1);
+    }
+  };
+
+  const goToNext = () => {
+    if (currentSlide < properties.length - 1) {
+      setCurrentSlide(currentSlide + 1);
+    }
+  };
+
+  // Using shared formatPrice utility
 
   const getPropertyTypeColor = (type: string) => {
     switch (type) {
@@ -211,7 +363,7 @@ const PropertiesShowcase: React.FC<PropertiesShowcaseProps> = ({ apiUrl }) => {
 
   if (loading) {
     return (
-      <section className="py-16 lg:py-24 bg-white">
+      <section className="py-12 lg:py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
@@ -224,7 +376,7 @@ const PropertiesShowcase: React.FC<PropertiesShowcaseProps> = ({ apiUrl }) => {
 
   if (error) {
     return (
-      <section className="py-16 lg:py-24 bg-white">
+      <section className="py-12 lg:py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <div className="text-red-600 text-xl mb-4">⚠️</div>
@@ -236,7 +388,7 @@ const PropertiesShowcase: React.FC<PropertiesShowcaseProps> = ({ apiUrl }) => {
   }
 
   return (
-    <section className="py-16 lg:py-24 bg-white">
+    <section className="py-12 lg:py-16 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <div className="text-center mb-16">
@@ -250,12 +402,83 @@ const PropertiesShowcase: React.FC<PropertiesShowcaseProps> = ({ apiUrl }) => {
 
         {/* Moving Horizontal Cards */}
         <div className="relative overflow-hidden mb-12">
-          <div className="flex animate-scroll space-x-6">
+          {/* Mobile Arrow Navigation */}
+          {isMobile && properties.length > 1 && (
+            <>
+              {/* Previous Arrow */}
+              <button
+                onClick={goToPrevious}
+                disabled={currentSlide === 0}
+                className={`absolute left-2 top-1/2 transform -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white shadow-lg border border-gray-200 flex items-center justify-center transition-all duration-200 hover:bg-gray-50 ${
+                  currentSlide === 0 
+                    ? 'opacity-50 cursor-not-allowed' 
+                    : 'opacity-90 hover:opacity-100 hover:shadow-xl active:scale-95'
+                }`}
+                aria-label="Previous property"
+              >
+                <svg 
+                  className="w-5 h-5 text-gray-600" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    strokeWidth={2} 
+                    d="M15 19l-7-7 7-7" 
+                  />
+                </svg>
+              </button>
+
+              {/* Next Arrow */}
+              <button
+                onClick={goToNext}
+                disabled={currentSlide === properties.length - 1}
+                className={`absolute right-2 top-1/2 transform -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white shadow-lg border border-gray-200 flex items-center justify-center transition-all duration-200 hover:bg-gray-50 ${
+                  currentSlide === properties.length - 1 
+                    ? 'opacity-50 cursor-not-allowed' 
+                    : 'opacity-90 hover:opacity-100 hover:shadow-xl active:scale-95'
+                }`}
+                aria-label="Next property"
+              >
+                <svg 
+                  className="w-5 h-5 text-gray-600" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    strokeWidth={2} 
+                    d="M9 5l7 7-7 7" 
+                  />
+                </svg>
+              </button>
+            </>
+          )}
+
+          <div 
+            ref={scrollContainerRef}
+            className={`flex space-x-6 ${isMobile ? 'overflow-x-auto snap-x snap-mandatory [&::-webkit-scrollbar]:hidden px-12' : 'animate-scroll'}`}
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+            style={{
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+              ...(isMobile && {
+                scrollBehavior: 'smooth',
+                WebkitOverflowScrolling: 'touch'
+              })
+            }}
+          >
             {/* Duplicate the properties array to create seamless loop */}
             {[...properties, ...properties].map((property, index) => (
               <div 
                 key={`${property.id}-${index}`}
-                className="flex-shrink-0 w-80 bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow border border-gray-100 overflow-hidden cursor-pointer"
+                className={`flex-shrink-0 w-80 bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow border border-gray-100 overflow-hidden cursor-pointer ${isMobile ? 'snap-center' : ''}`}
                 onClick={() => handlePropertyClick(property)}
               >
                 {/* Property Image */}
@@ -283,10 +506,37 @@ const PropertiesShowcase: React.FC<PropertiesShowcaseProps> = ({ apiUrl }) => {
                       {property.type.charAt(0).toUpperCase() + property.type.slice(1)}
                     </span>
                   </div>
-                  <div className="absolute top-4 right-4">
+                  <div className="absolute top-4 right-4 flex items-center space-x-2">
                     <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">
                       ✓ Verified
                     </span>
+                    
+                    {/* Favorite Button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleFavorite(property.id);
+                      }}
+                      disabled={favoriteLoading.has(property.id)}
+                      className={`p-2 rounded-full transition-colors ${
+                        favoriteProperties.has(property.id) 
+                          ? 'bg-red-500 text-white' 
+                          : 'bg-white bg-opacity-80 text-gray-600 hover:bg-opacity-100'
+                      }`}
+                    >
+                      {favoriteLoading.has(property.id) ? (
+                        <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin"></div>
+                      ) : (
+                        <svg 
+                          className="w-4 h-4" 
+                          fill={favoriteProperties.has(property.id) ? 'currentColor' : 'none'} 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                        </svg>
+                      )}
+                    </button>
                   </div>
                 </div>
 
@@ -322,6 +572,7 @@ const PropertiesShowcase: React.FC<PropertiesShowcaseProps> = ({ apiUrl }) => {
                         handleChatClick(property);
                       }}
                       className="flex items-center justify-center space-x-1 bg-green-50 hover:bg-green-100 text-green-700 py-2 px-3 rounded-lg text-sm font-medium transition-colors"
+                      title={!localStorage.getItem('token') ? 'Login required to start chat' : 'Start chat with property owner'}
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -334,6 +585,7 @@ const PropertiesShowcase: React.FC<PropertiesShowcaseProps> = ({ apiUrl }) => {
                         handleBuyClick(property);
                       }}
                       className="flex items-center justify-center space-x-1 bg-blue-50 hover:bg-blue-100 text-blue-700 py-2 px-3 rounded-lg text-sm font-medium transition-colors"
+                      title={!localStorage.getItem('token') ? 'Login required to express interest' : 'Express interest to buy this property'}
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13l2.5 5m6-5v6a2 2 0 01-2 2H9a2 2 0 01-2-2v-6m8 0V9a2 2 0 00-2-2H9a2 2 0 00-2 2v4.01" />
@@ -345,6 +597,25 @@ const PropertiesShowcase: React.FC<PropertiesShowcaseProps> = ({ apiUrl }) => {
               </div>
             ))}
           </div>
+          
+          {/* Mobile Slide Indicators */}
+          {isMobile && properties.length > 0 && (
+            <div className="flex justify-center mt-4 space-x-2">
+              {properties.slice(0, Math.min(properties.length, 5)).map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentSlide(index)}
+                  className={`w-2 h-2 rounded-full transition-colors ${
+                    currentSlide === index ? 'bg-blue-600' : 'bg-gray-300'
+                  }`}
+                  aria-label={`Go to slide ${index + 1}`}
+                />
+              ))}
+              {properties.length > 5 && (
+                <span className="text-xs text-gray-500 ml-2">+{properties.length - 5} more</span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Platform Features Highlight */}
