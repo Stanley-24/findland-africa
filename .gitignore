@@ -5,6 +5,70 @@ node_modules/
 */node_modules/
 **/node_modules/
 
+# Large files
+*.log
+*.sql
+*.dump
+*.backup
+*.zip
+*.tar.gz
+*.rar
+*.7z
+*.dmg
+*.iso
+*.img
+*.bin
+*.exe
+*.msi
+*.deb
+*.rpm
+*.pkg
+
+# Media files
+*.mp4
+*.avi
+*.mov
+*.wmv
+*.flv
+*.webm
+*.mkv
+*.mp3
+*.wav
+*.flac
+*.aac
+*.ogg
+*.wma
+*.m4a
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.tiff
+*.svg
+*.ico
+*.webp
+*.heic
+*.heif
+*.raw
+*.cr2
+*.nef
+*.arw
+*.dng
+*.psd
+*.ai
+*.eps
+*.pdf
+*.doc
+*.docx
+*.xls
+*.xlsx
+*.ppt
+*.pptx
+*.odt
+*.ods
+*.odp
+
 # ---------------------------
 # Build outputs
 # ---------------------------
@@ -88,15 +152,8 @@ venv.bak/
 .env.test.local
 .env.production.local
 .env.real
-.env.example
-backend/env.example
-backend/.env.real
-backend/.env
-frontend/.env
-frontend/.env.example
-frontend/.env.production
+env.example
 
-# ---------------------------
 # IDE
 # ---------------------------
 .vscode/
