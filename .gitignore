@@ -89,6 +89,12 @@ venv.bak/
 .env.production.local
 .env.real
 .env.example
+backend/env.example
+backend/.env.real
+backend/.env
+frontend/.env
+frontend/.env.example
+frontend/.env.production
 
 # ---------------------------
 # IDE
