@@ -1,5 +1,4 @@
 {
-  "version": 2,
   "builds": [
     {
       "src": "frontend/package.json",
@@ -7,16 +6,20 @@
       "config": {
         "distDir": "build"
       }
+    },
+    {
+      "src": "backend/requirements.txt",
+      "use": "@vercel/python"
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "https://findland-africa.onrender.com/api/$1"
+      "dest": "backend/main.py"
     },
     {
       "src": "/(.*)",
-      "dest": "/index.html"
+      "dest": "frontend/index.html"
     }
   ],
   "env": {
