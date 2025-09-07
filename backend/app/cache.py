@@ -2,7 +2,7 @@ import json
 import asyncio
 from typing import Any, Optional, Union
 from datetime import timedelta
-import redis
+import redis.asyncio as redis
 from functools import wraps
 import os
 from dotenv import load_dotenv
@@ -27,7 +27,7 @@ class CacheService:
             redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
             self.redis_client = redis.from_url(redis_url, decode_responses=True)
             # Test connection
-            self.redis_client.ping()
+            await self.redis_client.ping()
             print("✅ Connected to Redis cache")
         except Exception as e:
             print(f"⚠️ Redis not available, using memory cache: {e}")
@@ -36,7 +36,7 @@ class CacheService:
     async def disconnect(self):
         """Disconnect from Redis"""
         if self.redis_client:
-            self.redis_client.close()
+            await self.redis_client.close()
     
     def _get_cache_key(self, prefix: str, key: str) -> str:
         """Generate cache key"""
@@ -48,7 +48,7 @@ class CacheService:
         
         if self.redis_client:
             try:
-                value = self.redis_client.get(cache_key)
+                value = await self.redis_client.get(cache_key)
                 if value:
                     return json.loads(value)
             except Exception as e:
@@ -64,7 +64,7 @@ class CacheService:
         
         if self.redis_client:
             try:
-                self.redis_client.setex(
+                await self.redis_client.setex(
                     cache_key, 
                     ttl, 
                     json.dumps(value, default=str)
@@ -83,7 +83,7 @@ class CacheService:
         
         if self.redis_client:
             try:
-                self.redis_client.delete(cache_key)
+                await self.redis_client.delete(cache_key)
             except Exception as e:
                 print(f"Redis delete error: {e}")
         
@@ -95,9 +95,9 @@ class CacheService:
         """Delete all keys matching pattern"""
         if self.redis_client:
             try:
-                keys = self.redis_client.keys(pattern)
+                keys = await self.redis_client.keys(pattern)
                 if keys:
-                    return self.redis_client.delete(*keys)
+                    return await self.redis_client.delete(*keys)
             except Exception as e:
                 print(f"Redis delete pattern error: {e}")
         
