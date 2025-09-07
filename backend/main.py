@@ -48,12 +48,14 @@ async def shutdown_event():
     print("🛑 FastAPI application shutdown")
 
 # CORS middleware for frontend integration
-cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001").split(",")
+cors_origins = os.getenv("CORS_ORIGINS", "").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for development
-    allow_credentials=True,  # Allow credentials for authenticated requests
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_origins=cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+
     allow_headers=["*"],
 )
 
