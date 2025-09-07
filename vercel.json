@@ -15,8 +15,27 @@
       "dest": "https://findland-africa.onrender.com/api/$1"
     },
     {
+      "src": "/static/(.*)",
+      "dest": "/frontend/static/$1",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable",
+        "Content-Encoding": "br"
+      }
+    },
+    {
+      "src": "/.*\\.(js|css|png|jpg|jpeg|gif|svg|ico|json)",
+      "dest": "/frontend/$1",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable",
+        "Content-Encoding": "br"
+      }
+    },
+    {
       "src": "/(.*)",
-      "dest": "/frontend/index.html"
+      "dest": "/frontend/index.html",
+      "headers": {
+        "Cache-Control": "no-cache"
+      }
     }
   ],
   "env": {
