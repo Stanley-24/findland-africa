@@ -1,13 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import OnboardingForm from './OnboardingForm';
+import { saveUserIntent } from '../utils/userIntent';
+import { useDataCache } from '../contexts/DataCacheContext';
 
 interface Property {
   id: string;
   title: string;
   description: string;
-  type: 'rent' | 'sale';
+  type: 'rent' | 'sale' | 'land';
   price: number;
   location: string;
   status: 'available' | 'pending' | 'sold' | 'rented';
@@ -36,6 +38,7 @@ interface OnboardingData {
 }
 
 const PropertyList: React.FC<PropertyListProps> = ({ apiUrl }) => {
+  const { properties: cachedProperties, loading: cacheLoading } = useDataCache();
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -44,12 +47,45 @@ const PropertyList: React.FC<PropertyListProps> = ({ apiUrl }) => {
   const [selectedImageIndex, setSelectedImageIndex] = useState<Record<string, number>>({});
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
+  const [favoriteProperties, setFavoriteProperties] = useState<Set<string>>(new Set());
+  const [favoriteLoading, setFavoriteLoading] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    fetchProperties();
-  }, [apiUrl, searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
+  const filterCachedProperties = useCallback(() => {
+    if (!cachedProperties) return;
+    
+    let filteredProperties = [...cachedProperties];
+    
+    // Get URL parameters
+    const type = searchParams.get('type');
+    const search = searchParams.get('search');
+    
+    // Filter by type
+    if (type && type !== 'all') {
+      if (type === 'buy') {
+        filteredProperties = filteredProperties.filter(p => p.type === 'sale');
+      } else if (type === 'rent') {
+        filteredProperties = filteredProperties.filter(p => p.type === 'rent');
+      } else if (type === 'land') {
+        filteredProperties = filteredProperties.filter(p => p.type === 'land');
+      }
+    }
+    
+    // Filter by search term
+    if (search) {
+      const searchLower = search.toLowerCase();
+      filteredProperties = filteredProperties.filter(p => 
+        p.title.toLowerCase().includes(searchLower) ||
+        p.location.toLowerCase().includes(searchLower) ||
+        p.description.toLowerCase().includes(searchLower)
+      );
+    }
+    
+    setProperties(filteredProperties);
+    setLoading(false);
+    setError(null);
+  }, [cachedProperties, searchParams]);
 
-  const fetchProperties = async () => {
+  const fetchProperties = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -85,7 +121,26 @@ const PropertyList: React.FC<PropertyListProps> = ({ apiUrl }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiUrl, searchParams]);
+
+  // Use cached data with smart filtering
+  useEffect(() => {
+    if (cachedProperties && cachedProperties.length > 0) {
+      filterCachedProperties();
+    } else if (!cacheLoading) {
+      // Fallback to API if no cached data
+      fetchProperties();
+    }
+  }, [cachedProperties, cacheLoading, searchParams, filterCachedProperties, fetchProperties]);
+
+  // Check favorite status for all properties when they load
+  useEffect(() => {
+    if (properties.length > 0) {
+      properties.forEach(property => {
+        checkFavoriteStatus(property.id);
+      });
+    }
+  }, [properties]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-NG', {
@@ -106,6 +161,76 @@ const PropertyList: React.FC<PropertyListProps> = ({ apiUrl }) => {
         return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  // Check favorite status for a property
+  const checkFavoriteStatus = async (propertyId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await axios.get(`${apiUrl}/api/v1/favorites/${propertyId}/status`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.data.is_favorited) {
+        setFavoriteProperties(prev => new Set([...Array.from(prev), propertyId]));
+      }
+    } catch (error) {
+      console.error('Error checking favorite status:', error);
+    }
+  };
+
+  // Toggle favorite status
+  const handleToggleFavorite = async (propertyId: string) => {
+    try {
+      setFavoriteLoading(prev => new Set([...Array.from(prev), propertyId]));
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+
+      const isFavorited = favoriteProperties.has(propertyId);
+
+      if (isFavorited) {
+        // Remove from favorites
+        await axios.delete(`${apiUrl}/api/v1/favorites/${propertyId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        setFavoriteProperties(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(propertyId);
+          return newSet;
+        });
+      } else {
+        // Add to favorites
+        await axios.post(`${apiUrl}/api/v1/favorites/${propertyId}`, {}, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        setFavoriteProperties(prev => new Set([...Array.from(prev), propertyId]));
+      }
+    } catch (error: any) {
+      console.error('Error toggling favorite:', error);
+      if (error.response?.status === 401) {
+        navigate('/login');
+      } else {
+        alert('Failed to update favorites. Please try again.');
+      }
+    } finally {
+      setFavoriteLoading(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(propertyId);
+        return newSet;
+      });
     }
   };
 
@@ -152,7 +277,7 @@ const PropertyList: React.FC<PropertyListProps> = ({ apiUrl }) => {
       }
 
       // Create chat room for this property with user information
-      const response = await fetch(`${apiUrl}/api/v1/chat/rooms`, {
+      const response = await fetch(`${apiUrl}/api/v1/fast/chat/rooms`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -160,22 +285,15 @@ const PropertyList: React.FC<PropertyListProps> = ({ apiUrl }) => {
         },
         body: JSON.stringify({
           property_id: selectedProperty.id,
-          room_type: 'property_inquiry',
-          user_info: {
-            full_name: data.fullName,
-            email: data.email,
-            phone: data.phone,
-            purpose: data.purpose,
-            timeline: data.timeline,
-            additional_info: data.additionalInfo
-          }
+          created_by: JSON.parse(localStorage.getItem('user') || '{}').id,
+          name: `Chat about ${selectedProperty.title}`
         })
       });
 
       if (response.ok) {
-        const result = await response.json();
+        const newChatRoom = await response.json();
         alert('Contact request submitted successfully! The property owner will get in touch with you soon.');
-        window.open(`/chat/${result.id}`, '_blank');
+        window.open(`/chat/${newChatRoom.id}`, '_blank');
       } else {
         alert('Failed to submit contact request. Please try again.');
       }
@@ -186,6 +304,19 @@ const PropertyList: React.FC<PropertyListProps> = ({ apiUrl }) => {
   };
 
   const handleContactClick = (property: Property) => {
+    // Check if user is logged in
+    const token = localStorage.getItem('token');
+    if (!token) {
+      // Save user intent and redirect to login page
+      saveUserIntent({
+        action: 'chat',
+        property_id: property.id,
+        property_title: property.title,
+        timestamp: Date.now()
+      });
+      navigate('/login');
+      return;
+    }
     setSelectedProperty(property);
     setShowOnboarding(true);
   };
@@ -350,11 +481,38 @@ const PropertyList: React.FC<PropertyListProps> = ({ apiUrl }) => {
                   </span>
                 </div>
                 
-                {/* Status Badge */}
-                <div className="absolute top-3 right-3">
+                {/* Status Badge and Favorite Button */}
+                <div className="absolute top-3 right-3 flex items-center space-x-2">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(property.status)}`}>
                     {property.status}
                   </span>
+                  
+                  {/* Favorite Button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleToggleFavorite(property.id);
+                    }}
+                    disabled={favoriteLoading.has(property.id)}
+                    className={`p-2 rounded-full transition-colors ${
+                      favoriteProperties.has(property.id) 
+                        ? 'bg-red-500 text-white' 
+                        : 'bg-white bg-opacity-80 text-gray-600 hover:bg-opacity-100'
+                    }`}
+                  >
+                    {favoriteLoading.has(property.id) ? (
+                      <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin"></div>
+                    ) : (
+                      <svg 
+                        className="w-4 h-4" 
+                        fill={favoriteProperties.has(property.id) ? 'currentColor' : 'none'} 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                      </svg>
+                    )}
+                  </button>
                 </div>
                 
                 {/* Price Overlay */}
@@ -437,6 +595,7 @@ const PropertyList: React.FC<PropertyListProps> = ({ apiUrl }) => {
                   <button 
                     onClick={() => handleContactClick(property)}
                     className="flex-1 bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
+                    title={!localStorage.getItem('token') ? 'Login required to contact owner' : 'Contact property owner'}
                   >
                     Contact
                   </button>

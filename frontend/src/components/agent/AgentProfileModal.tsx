@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { formatPrice } from '../../utils/textUtils';
+import { formatDate } from '../../utils/dateUtils';
 
 interface AgentProfileModalProps {
   isOpen: boolean;
@@ -69,22 +71,7 @@ const AgentProfileModal: React.FC<AgentProfileModalProps> = ({
   }, [isOpen, agentName, fetchAgentDetails]);
 
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(price);
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
+  // Using shared formatPrice and formatDate utilities
 
   const renderStars = (rating: number) => {
     const stars = [];

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { formatPrice } from '../../utils/textUtils';
 
 interface User {
   id: string;
@@ -76,14 +77,7 @@ const AgentDashboard: React.FC<AgentDashboardProps> = ({ user, apiUrl, onLogout 
     fetchProperties();
   }, [fetchProperties]);
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(price);
-  };
+  // Using shared formatPrice utility
 
   const getPropertyTypeColor = (type: string) => {
     switch (type) {

@@ -11,10 +11,29 @@ from app.models.user import User
 from app.models.property import Property
 from app.models.escrow import Escrow
 from app.schemas.chat import (
-    ChatRoomCreate, ChatRoomUpdate, ChatRoomWithDetails,
+    ChatRoomCreate, ChatRoomUpdate, ChatRoomBatchDelete, ChatRoomWithDetails,
     ChatParticipantCreate, ChatMessageCreate, ChatMessageSend, ChatMessageUpdate,
     ChatMessageWithDetails
 )
+
+def convert_property_room_id_to_uuid(room_id: str) -> str:
+    """Convert property-based room ID to proper UUID format"""
+    if room_id.startswith('property_'):
+        property_id = room_id.replace('property_', '')
+        # Generate a consistent UUID based on property ID
+        import hashlib
+        hash_obj = hashlib.md5(f"property_chat_{property_id}".encode())
+        return str(uuid.UUID(hash_obj.hexdigest()))
+    elif room_id.startswith('temp_'):
+        # Handle temporary room IDs - extract property ID and generate consistent UUID
+        # Format: temp_{property_id}_{timestamp}
+        parts = room_id.split('_')
+        if len(parts) >= 3:
+            property_id = parts[1]  # Get the property ID from temp_{property_id}_{timestamp}
+            import hashlib
+            hash_obj = hashlib.md5(f"property_chat_{property_id}".encode())
+            return str(uuid.UUID(hash_obj.hexdigest()))
+    return room_id
 
 def get_chat_room_details(room: ChatRoom, db: Session) -> ChatRoomWithDetails:
     """Helper function to get chat room details with property info"""
@@ -36,10 +55,11 @@ def get_chat_room_details(room: ChatRoom, db: Session) -> ChatRoomWithDetails:
         ChatMessage.is_deleted == False
     ).order_by(ChatMessage.created_at.desc()).first()
     
-    # Add sender_name to last_message if it exists
+    # Get sender name for last message
+    last_message_sender_name = None
     if last_message:
         sender = db.query(User).filter(User.id == last_message.sender_id).first()
-        last_message.sender_name = sender.name if sender else "Unknown User"
+        last_message_sender_name = sender.name if sender else "Unknown User"
     
     # Get property details if room is associated with a property
     property_title = None
@@ -63,7 +83,23 @@ def get_chat_room_details(room: ChatRoom, db: Session) -> ChatRoomWithDetails:
     room_dict['property_location'] = property_location
     room_dict['agent_name'] = agent_name
     room_dict['agent_rating'] = agent_rating
-    room_dict['last_message'] = last_message
+    
+    # Serialize last message with sender_name
+    last_message_dict = None
+    if last_message:
+        last_message_dict = {
+            'id': str(last_message.id),
+            'room_id': str(last_message.room_id),
+            'sender_id': str(last_message.sender_id),
+            'sender_name': last_message_sender_name,
+            'content': last_message.content,
+            'message_type': last_message.message_type,
+            'is_edited': last_message.is_edited,
+            'is_deleted': last_message.is_deleted,
+            'created_at': last_message.created_at,
+            'updated_at': last_message.updated_at
+        }
+    room_dict['last_message'] = last_message_dict
     
     return ChatRoomWithDetails(**room_dict)
 from app.auth.dependencies import get_current_user
@@ -105,11 +141,39 @@ class ConnectionManager:
             for user_id in self.room_connections[room_id]:
                 if user_id != exclude_user and user_id in self.active_connections:
                     await self.active_connections[user_id].send_text(message)
+    
+    async def broadcast_typing_indicator(self, room_id: str, user_id: str, user_name: str, is_typing: bool):
+        """Broadcast typing indicator to all users in the room except the sender"""
+        if room_id in self.room_connections:
+            message = json.dumps({
+                "type": "typing",
+                "data": {
+                    "type": "typing_start" if is_typing else "typing_stop",
+                    "user_id": user_id,
+                    "user_name": user_name,
+                    "room_id": room_id
+                }
+            })
+            
+            for room_user_id in self.room_connections[room_id]:
+                if room_user_id != user_id and room_user_id in self.active_connections:
+                    await self.active_connections[room_user_id].send_text(message)
+    
+    async def broadcast_to_all(self, message: str, exclude_user: Optional[str] = None):
+        """Broadcast message to all connected users"""
+        for user_id, websocket in self.active_connections.items():
+            if user_id != exclude_user:
+                try:
+                    await websocket.send_text(message)
+                except Exception as e:
+                    print(f"Error sending message to user {user_id}: {e}")
+                    # Remove disconnected user
+                    del self.active_connections[user_id]
 
 manager = ConnectionManager()
 
 @router.post("/rooms", response_model=ChatRoomWithDetails, status_code=status.HTTP_201_CREATED)
-def create_chat_room(
+async def create_chat_room(
     room_data: ChatRoomCreate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -275,6 +339,12 @@ def create_chat_room(
             }
             room_dict['participants'].append(participant_dict)
         
+        # Broadcast room creation to all connected users
+        await manager.broadcast_to_all(json.dumps({
+            "type": "room_created",
+            "data": room_dict
+        }))
+        
         return ChatRoomWithDetails(**room_dict)
         
     except Exception as e:
@@ -328,10 +398,11 @@ def list_chat_rooms(
             ChatMessage.is_deleted == False
         ).order_by(ChatMessage.created_at.desc()).first()
         
-        # Add sender_name to last_message if it exists
+        # Get sender name for last message
+        last_message_sender_name = None
         if last_message:
             sender = db.query(User).filter(User.id == last_message.sender_id).first()
-            last_message.sender_name = sender.name if sender else "Unknown User"
+            last_message_sender_name = sender.name if sender else "Unknown User"
         
         # Get property details if room is associated with a property
         property_title = None
@@ -354,8 +425,8 @@ def list_chat_rooms(
         
         # Generate last message sender avatar
         last_message_sender_avatar = None
-        if last_message and last_message.sender_name:
-            last_message_sender_avatar = last_message.sender_name[0].upper()
+        if last_message_sender_name:
+            last_message_sender_avatar = last_message_sender_name[0].upper()
         
         room_dict = room.__dict__.copy()
         room_dict['participants'] = participants
@@ -366,7 +437,23 @@ def list_chat_rooms(
         room_dict['agent_rating'] = agent_rating
         room_dict['agent_avatar'] = agent_avatar
         room_dict['last_message_sender_avatar'] = last_message_sender_avatar
-        room_dict['last_message'] = last_message
+        
+        # Serialize last message with sender_name
+        last_message_dict = None
+        if last_message:
+            last_message_dict = {
+                'id': str(last_message.id),
+                'room_id': str(last_message.room_id),
+                'sender_id': str(last_message.sender_id),
+                'sender_name': last_message_sender_name,
+                'content': last_message.content,
+                'message_type': last_message.message_type,
+                'is_edited': last_message.is_edited,
+                'is_deleted': last_message.is_deleted,
+                'created_at': last_message.created_at,
+                'updated_at': last_message.updated_at
+            }
+        room_dict['last_message'] = last_message_dict
         
         result.append(ChatRoomWithDetails(**room_dict))
     
@@ -379,9 +466,170 @@ def get_chat_room(
     db: Session = Depends(get_db)
 ):
     """Get a specific chat room"""
-    # Check if user is participant
+    # Convert property-based room ID to proper UUID format if needed
+    actual_room_id = convert_property_room_id_to_uuid(room_id)
+    
+    room = db.query(ChatRoom).filter(ChatRoom.id == actual_room_id).first()
+    
+    # If room found and this is a property-based room ID, ensure it has the correct property_id
+    if room and room_id.startswith('property_'):
+        property_id = room_id.replace('property_', '')
+        if not room.property_id:
+            room.property_id = property_id
+            db.commit()
+            db.refresh(room)
+    
+    # If room found and this is a temporary room ID, ensure it has the correct property_id
+    elif room and room_id.startswith('temp_'):
+        parts = room_id.split('_')
+        if len(parts) >= 3:
+            property_id = parts[1]
+            if not room.property_id:
+                room.property_id = property_id
+                db.commit()
+                db.refresh(room)
+    
+    # If room not found and this is a property-based room ID, check for existing rooms for this property
+    elif not room and room_id.startswith('property_'):
+        property_id = room_id.replace('property_', '')
+        # Check if there's an existing room for this property
+        existing_room = db.query(ChatRoom).filter(
+            ChatRoom.property_id == property_id,
+            ChatRoom.room_type == 'property'
+        ).first()
+        
+        if existing_room:
+            # Use the existing room
+            room = existing_room
+        else:
+            # Verify the property exists
+            property_obj = db.query(Property).filter(Property.id == property_id).first()
+            if not property_obj:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Property not found"
+                )
+            
+            try:
+                # Create the chat room
+                room = ChatRoom(
+                    id=actual_room_id,
+                    name=f"Chat about {property_obj.title}",
+                    room_type="property",
+                    property_id=property_id,
+                    created_by=current_user.id
+                )
+                db.add(room)
+                db.commit()
+                db.refresh(room)
+                
+                # Add the current user as a participant
+                participant = ChatParticipant(
+                    room_id=room.id,
+                    user_id=current_user.id,
+                    role="member",
+                    is_active=True
+                )
+                db.add(participant)
+                db.commit()
+            except Exception as e:
+                db.rollback()
+                print(f"Error creating chat room: {e}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to create chat room"
+                )
+    
+    # If room not found and this is a temporary room ID, check for existing rooms for this property
+    elif not room and room_id.startswith('temp_'):
+        parts = room_id.split('_')
+        if len(parts) >= 3:
+            property_id = parts[1]
+            # Check if there's an existing room for this property
+            existing_room = db.query(ChatRoom).filter(
+                ChatRoom.property_id == property_id,
+                ChatRoom.room_type == 'property'
+            ).first()
+            
+            if existing_room:
+                # Use the existing room
+                room = existing_room
+            else:
+                # Verify the property exists
+                property_obj = db.query(Property).filter(Property.id == property_id).first()
+                if not property_obj:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Property not found"
+                    )
+                
+                # Create the chat room
+                room = ChatRoom(
+                    id=actual_room_id,
+                    name=f"Chat about {property_obj.title}",
+                    room_type="property",
+                    property_id=property_id,
+                    created_by=current_user.id
+                )
+                db.add(room)
+                db.commit()
+                db.refresh(room)
+                
+                # Add the current user as a participant
+                participant = ChatParticipant(
+                    room_id=room.id,
+                    user_id=current_user.id,
+                    role="member",
+                    is_active=True
+                )
+                db.add(participant)
+                db.commit()
+    
+    elif not room:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chat room not found"
+        )
+    
+    # For property rooms, allow access to any authenticated user
+    # For other rooms, check if user is participant
+    if room.room_type != 'property':
+        participant = db.query(ChatParticipant).filter(
+            ChatParticipant.room_id == actual_room_id,
+            ChatParticipant.user_id == current_user.id,
+            ChatParticipant.is_active == True
+        ).first()
+        
+        if not participant:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not a participant in this chat room"
+            )
+    
+    # Use the helper function to get complete room details including property info
+    return get_chat_room_details(room, db)
+
+@router.delete("/rooms/{room_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_chat_room(
+    room_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Delete a chat room"""
+    # Convert property-based room ID to proper UUID format if needed
+    actual_room_id = convert_property_room_id_to_uuid(room_id)
+    
+    # Find the room
+    room = db.query(ChatRoom).filter(ChatRoom.id == actual_room_id).first()
+    if not room:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chat room not found"
+        )
+    
+    # Check if user is a participant in the room
     participant = db.query(ChatParticipant).filter(
-        ChatParticipant.room_id == room_id,
+        ChatParticipant.room_id == actual_room_id,
         ChatParticipant.user_id == current_user.id,
         ChatParticipant.is_active == True
     ).first()
@@ -392,42 +640,101 @@ def get_chat_room(
             detail="You are not a participant in this chat room"
         )
     
-    room = db.query(ChatRoom).filter(ChatRoom.id == room_id).first()
-    if not room:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Chat room not found"
-        )
+    # For property rooms, only allow deletion by the creator or admin participants
+    if room.room_type == 'property':
+        if room.created_by != current_user.id and participant.role != 'admin':
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only the room creator or admin can delete this chat room"
+            )
     
-    # Get participants
-    participants = db.query(ChatParticipant).filter(
-        ChatParticipant.room_id == room.id,
-        ChatParticipant.is_active == True
-    ).all()
+    # Delete all messages in the room first (cascade should handle this, but being explicit)
+    db.query(ChatMessage).filter(ChatMessage.room_id == actual_room_id).delete()
     
-    # Get message count
-    message_count = db.query(ChatMessage).filter(
-        ChatMessage.room_id == room.id,
-        ChatMessage.is_deleted == False
-    ).count()
+    # Delete all participants
+    db.query(ChatParticipant).filter(ChatParticipant.room_id == actual_room_id).delete()
     
-    # Get last message
-    last_message = db.query(ChatMessage).filter(
-        ChatMessage.room_id == room.id,
-        ChatMessage.is_deleted == False
-    ).order_by(ChatMessage.created_at.desc()).first()
+    # Delete the room
+    db.delete(room)
+    db.commit()
     
-    # Add sender_name to last_message if it exists
-    if last_message:
-        sender = db.query(User).filter(User.id == last_message.sender_id).first()
-        last_message.sender_name = sender.name if sender else "Unknown User"
+    return None
+
+@router.post("/rooms/batch-delete", status_code=status.HTTP_200_OK)
+def batch_delete_chat_rooms(
+    batch_data: ChatRoomBatchDelete,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Batch delete multiple chat rooms"""
+    deleted_rooms = []
+    failed_deletions = []
     
-    room_dict = room.__dict__.copy()
-    room_dict['participants'] = participants
-    room_dict['message_count'] = message_count
-    room_dict['last_message'] = last_message
+    for room_id in batch_data.room_ids:
+        try:
+            # Convert property-based room ID to proper UUID format if needed
+            actual_room_id = convert_property_room_id_to_uuid(room_id)
+            
+            # Find the room
+            room = db.query(ChatRoom).filter(ChatRoom.id == actual_room_id).first()
+            if not room:
+                failed_deletions.append({
+                    "room_id": room_id,
+                    "error": "Chat room not found"
+                })
+                continue
+            
+            # Check if user is a participant in the room
+            participant = db.query(ChatParticipant).filter(
+                ChatParticipant.room_id == actual_room_id,
+                ChatParticipant.user_id == current_user.id,
+                ChatParticipant.is_active == True
+            ).first()
+            
+            if not participant:
+                failed_deletions.append({
+                    "room_id": room_id,
+                    "error": "You are not a participant in this chat room"
+                })
+                continue
+            
+            # For property rooms, only allow deletion by the creator or admin participants
+            if room.room_type == 'property':
+                if room.created_by != current_user.id and participant.role != 'admin':
+                    failed_deletions.append({
+                        "room_id": room_id,
+                        "error": "Only the room creator or admin can delete this chat room"
+                    })
+                    continue
+            
+            # Delete all messages in the room first
+            db.query(ChatMessage).filter(ChatMessage.room_id == actual_room_id).delete()
+            
+            # Delete all participants
+            db.query(ChatParticipant).filter(ChatParticipant.room_id == actual_room_id).delete()
+            
+            # Delete the room
+            db.delete(room)
+            deleted_rooms.append(room_id)
+            
+        except Exception as e:
+            failed_deletions.append({
+                "room_id": room_id,
+                "error": str(e)
+            })
     
-    return ChatRoomWithDetails(**room_dict)
+    # Commit all successful deletions
+    db.commit()
+    
+    return {
+        "deleted_rooms": deleted_rooms,
+        "failed_deletions": failed_deletions,
+        "summary": {
+            "total_requested": len(batch_data.room_ids),
+            "successfully_deleted": len(deleted_rooms),
+            "failed": len(failed_deletions)
+        }
+    }
 
 @router.get("/rooms/{room_id}/messages", response_model=List[ChatMessageWithDetails])
 def get_chat_messages(
@@ -438,9 +745,12 @@ def get_chat_messages(
     db: Session = Depends(get_db)
 ):
     """Get messages from a chat room"""
+    # Convert property-based room ID to proper UUID format if needed
+    actual_room_id = convert_property_room_id_to_uuid(room_id)
+    
     # Check if user is participant
     participant = db.query(ChatParticipant).filter(
-        ChatParticipant.room_id == room_id,
+        ChatParticipant.room_id == actual_room_id,
         ChatParticipant.user_id == current_user.id,
         ChatParticipant.is_active == True
     ).first()
@@ -453,7 +763,7 @@ def get_chat_messages(
     
     # Get messages
     messages = db.query(ChatMessage).filter(
-        ChatMessage.room_id == room_id,
+        ChatMessage.room_id == actual_room_id,
         ChatMessage.is_deleted == False
     ).order_by(ChatMessage.created_at.desc()).offset(skip).limit(limit).all()
     
@@ -500,22 +810,190 @@ async def send_message(
     db: Session = Depends(get_db)
 ):
     """Send a message to a chat room"""
-    # Check if user is participant
-    participant = db.query(ChatParticipant).filter(
-        ChatParticipant.room_id == room_id,
-        ChatParticipant.user_id == current_user.id,
-        ChatParticipant.is_active == True
-    ).first()
+    # Convert property-based room ID to proper UUID format if needed
+    actual_room_id = convert_property_room_id_to_uuid(room_id)
     
-    if not participant:
+    # Check if room exists
+    room = db.query(ChatRoom).filter(ChatRoom.id == actual_room_id).first()
+    
+    # If room found and this is a property-based room ID, ensure it has the correct property_id
+    if room and room_id.startswith('property_'):
+        property_id = room_id.replace('property_', '')
+        if not room.property_id:
+            room.property_id = property_id
+            db.commit()
+            db.refresh(room)
+    
+    # If room found and this is a temporary room ID, ensure it has the correct property_id
+    elif room and room_id.startswith('temp_'):
+        parts = room_id.split('_')
+        if len(parts) >= 3:
+            property_id = parts[1]
+            if not room.property_id:
+                room.property_id = property_id
+                db.commit()
+                db.refresh(room)
+    
+    # If room not found and this is a property-based room ID, check for existing rooms for this property
+    elif not room and room_id.startswith('property_'):
+        property_id = room_id.replace('property_', '')
+        # Check if there's an existing room for this property
+        existing_room = db.query(ChatRoom).filter(
+            ChatRoom.property_id == property_id,
+            ChatRoom.room_type == 'property'
+        ).first()
+        
+        if existing_room:
+            # Use the existing room
+            room = existing_room
+        else:
+            # Verify the property exists
+            property_obj = db.query(Property).filter(Property.id == property_id).first()
+            if not property_obj:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Property not found"
+                )
+            
+            # Create the chat room
+            room = ChatRoom(
+                id=actual_room_id,
+                name=f"Chat about {property_obj.title}",
+                room_type="property",
+                property_id=property_id,
+                created_by=current_user.id
+            )
+            db.add(room)
+            db.commit()
+            db.refresh(room)
+            
+            # Broadcast room_created event
+            room_dict = {
+                "id": str(room.id),
+                "name": room.name,
+                "room_type": room.room_type,
+                "property_id": room.property_id,
+                "property_title": property_obj.title,
+                "property_location": property_obj.location,
+                "agent_id": property_obj.owner_id,
+                "agent_name": property_obj.agent_name or "Unknown",
+                "agent_avatar": None,  # No avatar available in current model
+                "agent_rating": float(property_obj.agent_rating) if property_obj.agent_rating else None,
+                "status": "active",
+                "created_at": room.created_at.isoformat(),
+                "created_by": str(room.created_by),
+                "last_message": None,
+                "last_message_sender_avatar": None
+            }
+            
+            await manager.broadcast_to_all(json.dumps({
+                "type": "room_created",
+                "data": room_dict
+            }))
+            
+            # Add the current user as a participant
+            participant = ChatParticipant(
+                room_id=room.id,
+                user_id=current_user.id,
+                role="member",
+                is_active=True
+            )
+            db.add(participant)
+            db.commit()
+    
+    # If room not found and this is a temporary room ID, check for existing rooms for this property
+    elif not room and room_id.startswith('temp_'):
+        parts = room_id.split('_')
+        if len(parts) >= 3:
+            property_id = parts[1]
+            # Check if there's an existing room for this property
+            existing_room = db.query(ChatRoom).filter(
+                ChatRoom.property_id == property_id,
+                ChatRoom.room_type == 'property'
+            ).first()
+            
+            if existing_room:
+                # Use the existing room
+                room = existing_room
+            else:
+                # Verify the property exists
+                property_obj = db.query(Property).filter(Property.id == property_id).first()
+                if not property_obj:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Property not found"
+                    )
+                
+                # Create the chat room
+                room = ChatRoom(
+                    id=actual_room_id,
+                    name=f"Chat about {property_obj.title}",
+                    room_type="property",
+                    property_id=property_id,
+                    created_by=current_user.id
+                )
+                db.add(room)
+                db.commit()
+                db.refresh(room)
+                
+                # Broadcast room_created event
+                room_dict = {
+                    "id": str(room.id),
+                    "name": room.name,
+                    "room_type": room.room_type,
+                    "property_id": room.property_id,
+                    "property_title": property_obj.title,
+                    "property_location": property_obj.location,
+                    "agent_id": property_obj.owner_id,
+                "agent_name": property_obj.agent_name or "Unknown",
+                "agent_avatar": None,  # No avatar available in current model
+                "agent_rating": float(property_obj.agent_rating) if property_obj.agent_rating else None,
+                    "status": "active",
+                    "created_at": room.created_at.isoformat(),
+                    "created_by": str(room.created_by),
+                    "last_message": None,
+                    "last_message_sender_avatar": None
+                }
+                
+                await manager.broadcast_to_all(json.dumps({
+                    "type": "room_created",
+                    "data": room_dict
+                }))
+                
+                # Add the current user as a participant
+                participant = ChatParticipant(
+                    room_id=room.id,
+                    user_id=current_user.id,
+                    role="member",
+                    is_active=True
+                )
+                db.add(participant)
+                db.commit()
+    
+    elif not room:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not a participant in this chat room"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chat room not found"
         )
+    
+    # For property rooms, allow access to any authenticated user
+    # For other rooms, check if user is participant
+    if room.room_type != 'property':
+        participant = db.query(ChatParticipant).filter(
+            ChatParticipant.room_id == actual_room_id,
+            ChatParticipant.user_id == current_user.id,
+            ChatParticipant.is_active == True
+        ).first()
+        
+        if not participant:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not a participant in this chat room"
+            )
     
     # Create message
     db_message = ChatMessage(
-        room_id=room_id,
+        room_id=actual_room_id,
         sender_id=current_user.id,
         content=message_data.content,
         message_type=message_data.message_type,
@@ -530,7 +1008,7 @@ async def send_message(
     db.refresh(db_message)
     
     # Get room details for notifications
-    room = db.query(ChatRoom).filter(ChatRoom.id == room_id).first()
+    room = db.query(ChatRoom).filter(ChatRoom.id == actual_room_id).first()
     
     # Broadcast to WebSocket connections
     message_dict = {
@@ -549,14 +1027,23 @@ async def send_message(
     await manager.broadcast_to_room(json.dumps({
         "type": "message",
         "data": message_dict,
-        "room_id": room_id,
+        "room_id": actual_room_id,
         "sender_id": str(current_user.id),
         "sender_name": current_user.name
-    }), room_id, str(current_user.id))
+    }), actual_room_id, str(current_user.id))
+    
+    # Also broadcast to all connected users for notifications
+    await manager.broadcast_to_all(json.dumps({
+        "type": "message",
+        "data": message_dict,
+        "room_id": actual_room_id,
+        "sender_id": str(current_user.id),
+        "sender_name": current_user.name
+    }), str(current_user.id))
     
     # Send notification to all participants in the room (except sender)
     participants = db.query(ChatParticipant).filter(
-        ChatParticipant.room_id == room_id,
+        ChatParticipant.room_id == actual_room_id,
         ChatParticipant.is_active == True,
         ChatParticipant.user_id != current_user.id
     ).all()
@@ -722,3 +1209,75 @@ async def notification_websocket_endpoint(websocket: WebSocket, user_id: str = Q
             
     except WebSocketDisconnect:
         manager.disconnect(user_id)
+
+@router.post("/rooms/{room_id}/typing")
+async def send_typing_indicator(
+    room_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Send typing indicator to other users in the room"""
+    try:
+        # Verify user has access to the room
+        room = db.query(ChatRoom).filter(ChatRoom.id == room_id).first()
+        if not room:
+            raise HTTPException(status_code=404, detail="Chat room not found")
+        
+        # Check if user is a participant
+        is_participant = db.query(ChatParticipant).filter(
+            ChatParticipant.room_id == room_id,
+            ChatParticipant.user_id == current_user.id,
+            ChatParticipant.is_active == True
+        ).first() is not None
+        
+        if not is_participant and room.created_by != current_user.id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        # Broadcast typing indicator
+        await manager.broadcast_typing_indicator(
+            room_id, 
+            str(current_user.id), 
+            current_user.name, 
+            True
+        )
+        
+        return {"status": "typing_indicator_sent"}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error sending typing indicator: {str(e)}")
+
+@router.post("/rooms/{room_id}/typing/stop")
+async def stop_typing_indicator(
+    room_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Stop typing indicator"""
+    try:
+        # Verify user has access to the room
+        room = db.query(ChatRoom).filter(ChatRoom.id == room_id).first()
+        if not room:
+            raise HTTPException(status_code=404, detail="Chat room not found")
+        
+        # Check if user is a participant
+        is_participant = db.query(ChatParticipant).filter(
+            ChatParticipant.room_id == room_id,
+            ChatParticipant.user_id == current_user.id,
+            ChatParticipant.is_active == True
+        ).first() is not None
+        
+        if not is_participant and room.created_by != current_user.id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        # Broadcast stop typing indicator
+        await manager.broadcast_typing_indicator(
+            room_id, 
+            str(current_user.id), 
+            current_user.name, 
+            False
+        )
+        
+        return {"status": "typing_indicator_stopped"}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error stopping typing indicator: {str(e)}")

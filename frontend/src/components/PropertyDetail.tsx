@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
+import LoadingSpinner from './common/LoadingSpinner';
+// import { getUserIntent, executeUserIntent, clearUserIntent } from '../utils/userIntent';
 
 interface Property {
   id: string;
@@ -31,6 +33,7 @@ interface PropertyDetailProps {
 const PropertyDetail: React.FC<PropertyDetailProps> = ({ apiUrl }) => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,12 +41,32 @@ const PropertyDetail: React.FC<PropertyDetailProps> = ({ apiUrl }) => {
   const [showChatModal, setShowChatModal] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showImageModal, setShowImageModal] = useState(false);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [isFavorited, setIsFavorited] = useState(false);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
 
   useEffect(() => {
     if (id) {
       fetchProperty();
+      checkFavoriteStatus();
     }
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Handle user intent execution after property loads
+  useEffect(() => {
+    if (property && !loading) {
+      const action = searchParams.get('action');
+      if (action === 'chat') {
+        setShowChatModal(true);
+        // Clean up URL parameter
+        navigate(`/properties/${property.id}`, { replace: true });
+      } else if (action === 'buy') {
+        setShowBuyModal(true);
+        // Clean up URL parameter
+        navigate(`/properties/${property.id}`, { replace: true });
+      }
+    }
+  }, [property, loading, searchParams, navigate]);
 
   // Keyboard navigation for image gallery
   useEffect(() => {
@@ -67,7 +90,7 @@ const PropertyDetail: React.FC<PropertyDetailProps> = ({ apiUrl }) => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${apiUrl}/api/v1/properties/${id}`, {
+      const response = await axios.get(`${apiUrl}/api/v1/fast/properties/${id}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -109,10 +132,46 @@ const PropertyDetail: React.FC<PropertyDetailProps> = ({ apiUrl }) => {
   };
 
   const handleBuy = () => {
+    // Check if user is logged in
+    const token = localStorage.getItem('token');
+    if (!token) {
+      // Save user intent for buy action
+      const userIntent = {
+        action: 'buy',
+        property_id: property?.id,
+        property_title: property?.title,
+        agent_name: property?.agent_name,
+        agent_email: property?.agent_email,
+        timestamp: Date.now()
+      };
+      localStorage.setItem('userIntent', JSON.stringify(userIntent));
+      
+      // Redirect to signup page
+      navigate('/register');
+      return;
+    }
     setShowBuyModal(true);
   };
 
   const handleChat = () => {
+    // Check if user is logged in
+    const token = localStorage.getItem('token');
+    if (!token) {
+      // Save user intent for chat action
+      const userIntent = {
+        action: 'chat',
+        property_id: property?.id,
+        property_title: property?.title,
+        agent_name: property?.agent_name,
+        agent_email: property?.agent_email,
+        timestamp: Date.now()
+      };
+      localStorage.setItem('userIntent', JSON.stringify(userIntent));
+      
+      // Redirect to signup page
+      navigate('/register');
+      return;
+    }
     setShowChatModal(true);
   };
 
@@ -120,14 +179,24 @@ const PropertyDetail: React.FC<PropertyDetailProps> = ({ apiUrl }) => {
     if (!property) return;
     
     try {
+      setChatLoading(true);
+      
       const token = localStorage.getItem('token');
       if (!token) {
         navigate('/login');
         return;
       }
 
+      // Get current user info
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      if (!user.id) {
+        console.error('User ID not found');
+        navigate('/login');
+        return;
+      }
+
       // First, try to find existing chat room for this property
-      const chatRoomsResponse = await fetch(`${apiUrl}/api/v1/chat/rooms`, {
+      const chatRoomsResponse = await fetch(`${apiUrl}/api/v1/fast/chat/rooms`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -138,30 +207,65 @@ const PropertyDetail: React.FC<PropertyDetailProps> = ({ apiUrl }) => {
         const existingRoom = chatRooms.find((room: any) => room.property_id === property.id);
         
         if (existingRoom) {
-          // Navigate to existing chat room
-          navigate(`/chat/${existingRoom.id}`);
+          // Add half-second delay for loading spinner
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Navigate to existing chat room using actual chat room ID
+          const propertyMessage = `I'm interested in this property: ${property.title} - ${property.location} (${formatPrice(property.price)})`;
+          navigate(`/chat/${existingRoom.id}`, { 
+            state: { 
+              initialMessage: propertyMessage,
+              propertyInfo: {
+                id: property.id,
+                title: property.title,
+                location: property.location,
+                price: property.price,
+                type: property.type,
+                owner_id: property.owner_id
+              },
+              returnUrl: `/properties/${property.id}`
+            } 
+          });
           return;
         }
       }
 
       // If no existing room, create a new one
-      const createResponse = await fetch(`${apiUrl}/api/v1/chat/rooms`, {
+      const createResponse = await fetch(`${apiUrl}/api/v1/fast/chat/rooms`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          name: `Chat about ${property.title}`,
-          room_type: 'property',
           property_id: property.id,
-          participant_ids: [property.owner_id] // Add property owner as participant
+          created_by: user.id,
+          name: `Chat about ${property.title}`
         }),
       });
 
       if (createResponse.ok) {
-        const newRoom = await createResponse.json();
-        navigate(`/chat/${newRoom.id}`);
+        const newChatRoom = await createResponse.json();
+        
+        // Add half-second delay for loading spinner
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Navigate using actual chat room ID
+        const propertyMessage = `I'm interested in this property: ${property.title} - ${property.location} (${formatPrice(property.price)})`;
+        navigate(`/chat/${newChatRoom.id}`, { 
+          state: { 
+            initialMessage: propertyMessage,
+            propertyInfo: {
+              id: property.id,
+              title: property.title,
+              location: property.location,
+              price: property.price,
+              type: property.type,
+              owner_id: property.owner_id
+            },
+            returnUrl: `/properties/${property.id}`
+          } 
+        });
       } else {
         console.error('Failed to create chat room');
         alert('Failed to start chat. Please try again.');
@@ -169,6 +273,8 @@ const PropertyDetail: React.FC<PropertyDetailProps> = ({ apiUrl }) => {
     } catch (error) {
       console.error('Error starting chat:', error);
       alert('Failed to start chat. Please try again.');
+    } finally {
+      setChatLoading(false);
     }
   };
 
@@ -200,6 +306,71 @@ const PropertyDetail: React.FC<PropertyDetailProps> = ({ apiUrl }) => {
     } catch (error) {
       console.error('Payment error:', error);
       alert('Payment failed. Please try again.');
+    }
+  };
+
+  const checkFavoriteStatus = async () => {
+    if (!id) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setIsFavorited(false);
+        return;
+      }
+
+      const response = await axios.get(`${apiUrl}/api/v1/favorites/${id}/status`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      setIsFavorited(response.data.is_favorited);
+    } catch (error) {
+      console.error('Error checking favorite status:', error);
+      setIsFavorited(false);
+    }
+  };
+
+  const handleToggleFavorite = async () => {
+    if (!property || !id) return;
+    
+    try {
+      setFavoriteLoading(true);
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        // Redirect to login if not authenticated
+        navigate('/login');
+        return;
+      }
+
+      if (isFavorited) {
+        // Remove from favorites
+        await axios.delete(`${apiUrl}/api/v1/favorites/${id}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        setIsFavorited(false);
+      } else {
+        // Add to favorites
+        await axios.post(`${apiUrl}/api/v1/favorites/${id}`, {}, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        setIsFavorited(true);
+      }
+    } catch (error: any) {
+      console.error('Error toggling favorite:', error);
+      if (error.response?.status === 401) {
+        navigate('/login');
+      } else {
+        alert('Failed to update favorites. Please try again.');
+      }
+    } finally {
+      setFavoriteLoading(false);
     }
   };
 
@@ -261,36 +432,40 @@ const PropertyDetail: React.FC<PropertyDetailProps> = ({ apiUrl }) => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 order-1">
             {/* Property Image Gallery */}
-            <div className="bg-white rounded-lg shadow-sm overflow-hidden mb-6">
+            <div className="bg-white rounded-xl shadow-lg overflow-hidden mb-8">
               {property.media && property.media.length > 0 ? (
-                <div className="relative">
+                <div className="relative group">
                   {/* Main Image */}
-                  <div className="relative h-64 sm:h-80 bg-gray-200">
+                  <div className="relative h-80 sm:h-96 lg:h-[500px] bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden">
                     <img
                       src={property.media[currentImageIndex].url}
                       alt={`${property.title} - ${currentImageIndex + 1}`}
-                      className="w-full h-full object-cover cursor-pointer"
+                      className="w-full h-full object-cover cursor-pointer transition-all duration-500 group-hover:scale-105 group-hover:brightness-110"
                       onClick={() => openImageModal(currentImageIndex)}
+                      loading="lazy"
                     />
+                    
+                    {/* Overlay gradient for better text visibility */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent"></div>
                     
                     {/* Navigation Arrows */}
                     {property.media.length > 1 && (
                       <>
                         <button
                           onClick={prevImage}
-                          className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70 transition-all"
+                          className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white/95 backdrop-blur-sm text-gray-800 p-3 rounded-full shadow-xl hover:bg-white hover:scale-110 transition-all duration-300 opacity-0 group-hover:opacity-100 border border-gray-200"
                         >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                           </svg>
                         </button>
                         <button
                           onClick={nextImage}
-                          className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70 transition-all"
+                          className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white/95 backdrop-blur-sm text-gray-800 p-3 rounded-full shadow-xl hover:bg-white hover:scale-110 transition-all duration-300 opacity-0 group-hover:opacity-100 border border-gray-200"
                         >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                           </svg>
                         </button>
@@ -299,30 +474,75 @@ const PropertyDetail: React.FC<PropertyDetailProps> = ({ apiUrl }) => {
                     
                     {/* Image Counter */}
                     {property.media.length > 1 && (
-                      <div className="absolute bottom-2 right-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-sm">
+                      <div className="absolute bottom-4 right-4 bg-black/80 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg">
                         {currentImageIndex + 1} / {property.media.length}
                       </div>
                     )}
+                    
+                    {/* Verified Badge */}
+                    <div className="absolute top-4 left-4 bg-green-600 text-white px-3 py-2 rounded-full text-sm font-medium shadow-lg flex items-center">
+                      <svg className="w-4 h-4 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      Verified
+                    </div>
+                    
+                    {/* Favorite Button */}
+                    <button
+                      onClick={handleToggleFavorite}
+                      disabled={favoriteLoading}
+                      className={`absolute top-4 right-16 p-3 rounded-full shadow-lg transition-all duration-300 ${
+                        isFavorited 
+                          ? 'bg-red-500 text-white hover:bg-red-600' 
+                          : 'bg-white/90 text-gray-600 hover:bg-white hover:text-red-500'
+                      } ${favoriteLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      {favoriteLoading ? (
+                        <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                      ) : (
+                        <svg 
+                          className={`w-5 h-5 transition-colors duration-200 ${
+                            isFavorited ? 'fill-current' : 'stroke-current fill-none'
+                          }`} 
+                          viewBox="0 0 24 24"
+                        >
+                          <path 
+                            strokeLinecap="round" 
+                            strokeLinejoin="round" 
+                            strokeWidth={2} 
+                            d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" 
+                          />
+                        </svg>
+                      )}
+                    </button>
+                    
+                    {/* Fullscreen indicator */}
+                    <div className="absolute top-4 right-4 bg-black/80 backdrop-blur-sm text-white p-3 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-300 shadow-lg hover:bg-black/90">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                      </svg>
+                    </div>
                   </div>
                   
-                  {/* Thumbnail Gallery */}
+                  {/* Enhanced Thumbnail Gallery */}
                   {property.media.length > 1 && (
-                    <div className="p-4">
-                      <div className="flex space-x-2 overflow-x-auto">
+                    <div className="p-6 bg-gradient-to-r from-gray-50 to-gray-100">
+                      <div className="flex space-x-4 overflow-x-auto pb-2 scrollbar-hide">
                         {property.media.map((media, index) => (
                           <button
                             key={media.id}
                             onClick={() => setCurrentImageIndex(index)}
-                            className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
+                            className={`flex-shrink-0 w-24 h-24 rounded-2xl overflow-hidden border-4 transition-all duration-300 hover:scale-110 ${
                               index === currentImageIndex 
-                                ? 'border-blue-500 ring-2 ring-blue-200' 
-                                : 'border-gray-200 hover:border-gray-300'
+                                ? 'border-blue-500 ring-4 ring-blue-200 shadow-xl scale-105' 
+                                : 'border-gray-200 hover:border-gray-300 shadow-lg hover:shadow-xl'
                             }`}
                           >
                             <img
                               src={media.url}
                               alt={`${property.title} thumbnail ${index + 1}`}
-                              className="w-full h-full object-cover"
+                              className="w-full h-full object-cover transition-transform duration-300 hover:scale-110"
+                              loading="lazy"
                             />
                           </button>
                         ))}
@@ -331,21 +551,39 @@ const PropertyDetail: React.FC<PropertyDetailProps> = ({ apiUrl }) => {
                   )}
                 </div>
               ) : (
-                <div className="h-64 sm:h-80 bg-gray-200 flex items-center justify-center">
+                <div className="h-80 sm:h-96 lg:h-[500px] bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
                   <div className="text-center">
-                    <svg className="w-16 h-16 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <p className="text-gray-500 text-sm">No images available</p>
+                    <div className="w-20 h-20 bg-gray-300 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <svg className="w-10 h-10 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <p className="text-gray-500 text-lg font-medium">No images available</p>
+                    <p className="text-gray-400 text-sm mt-1">Images will be added soon</p>
                   </div>
                 </div>
               )}
             </div>
 
             {/* Property Details */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h1 className="text-3xl font-bold text-gray-900 mb-4">{property.title}</h1>
-              <p className="text-gray-600 mb-6">{property.location}</p>
+            <div className="bg-white rounded-xl shadow-lg p-6 lg:p-8">
+              <div className="flex items-start justify-between mb-4">
+                <h1 className="text-3xl lg:text-4xl font-bold text-gray-900 flex-1">{property.title}</h1>
+                {/* Verified Badge */}
+                <div className="flex items-center bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium ml-4">
+                  <svg className="w-4 h-4 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  Verified
+                </div>
+              </div>
+              <div className="flex items-center text-gray-600 mb-6">
+                <svg className="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <span className="text-lg">{property.location}</span>
+              </div>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                 <div className="flex items-center">
@@ -383,9 +621,9 @@ const PropertyDetail: React.FC<PropertyDetailProps> = ({ apiUrl }) => {
           </div>
 
           {/* Sidebar */}
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-1 order-2">
             {/* Price Card */}
-            <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <div className="bg-white rounded-xl shadow-lg p-8 mb-6">
               <div className="text-center">
                 <p className="text-sm text-gray-500 mb-2">Price</p>
                 <p className="text-3xl font-bold text-blue-600 mb-6">{formatPrice(property.price)}</p>
@@ -399,7 +637,8 @@ const PropertyDetail: React.FC<PropertyDetailProps> = ({ apiUrl }) => {
                   </button>
                   <button
                     onClick={handleChat}
-                    className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                    disabled={chatLoading}
+                    className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Chat with Agent
                   </button>
@@ -409,7 +648,7 @@ const PropertyDetail: React.FC<PropertyDetailProps> = ({ apiUrl }) => {
 
             {/* Agent Information */}
             {property.agent_name && (
-              <div className="bg-white rounded-lg shadow-sm p-6">
+              <div className="bg-white rounded-xl shadow-lg p-8">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Agent Information</h3>
                 <div className="space-y-4">
                   <div>
@@ -533,7 +772,8 @@ const PropertyDetail: React.FC<PropertyDetailProps> = ({ apiUrl }) => {
                   setShowChatModal(false);
                   await handleStartChat();
                 }}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+                disabled={chatLoading}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Start Chat
               </button>
@@ -591,6 +831,16 @@ const PropertyDetail: React.FC<PropertyDetailProps> = ({ apiUrl }) => {
                 {currentImageIndex + 1} / {property.media.length}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Page-level loading overlay */}
+      {chatLoading && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 flex flex-col items-center space-y-4">
+            <LoadingSpinner size="lg" />
+            <p className="text-gray-700 font-medium">Opening chat...</p>
           </div>
         </div>
       )}

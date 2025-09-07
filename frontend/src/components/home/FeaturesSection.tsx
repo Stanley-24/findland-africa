@@ -41,7 +41,7 @@ const FeaturesSection: React.FC = () => {
   ];
 
   return (
-    <section className="py-20 lg:py-32 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 relative overflow-hidden">
+    <section className="py-12 lg:py-16 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 relative overflow-hidden">
       {/* Background decorative elements */}
       <div className="absolute inset-0 opacity-40">
         <div className="absolute inset-0" style={{
@@ -97,7 +97,7 @@ const FeaturesSection: React.FC = () => {
             <h3 className="text-3xl font-bold text-gray-900 mb-4">Additional Benefits</h3>
             <p className="text-gray-600 text-lg">More reasons to choose our platform</p>
           </div>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
             <div className="text-center group">
               <div className="relative mb-6">
                 <div className="w-16 h-16 bg-gradient-to-br from-green-400 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg">
