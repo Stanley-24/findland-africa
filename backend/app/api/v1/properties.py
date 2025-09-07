@@ -54,7 +54,8 @@ def list_properties(
     """List all properties with optional filters"""
     from sqlalchemy.orm import joinedload
     
-    query = db.query(Property).options(joinedload(Property.media))
+    query = db.query(Property)
+    # Note: media relationship is temporarily commented out for local development
     
     # Apply filters
     if type:

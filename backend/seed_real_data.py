@@ -267,6 +267,238 @@ REAL_LAGOS_PROPERTIES = [
             "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&h=600&fit=crop",
             "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=800&h=600&fit=crop"
         ]
+    },
+    
+    # Additional Lagos Areas - More Diverse Properties
+    {
+        "title": "2-Bedroom Apartment in Maryland",
+        "description": "Modern apartment in Maryland with excellent road network access. Features include fitted kitchen, en-suite bedrooms, and balcony. Close to shopping centers and business districts.",
+        "type": "rent",
+        "price": 1800000,
+        "location": "Maryland, Lagos",
+        "status": "available",
+        "verified": True,
+        "images": [
+            "https://images.unsplash.com/photo-1600607687644-c7171b42498b?w=800&h=600&fit=crop"
+        ]
+    },
+    {
+        "title": "3-Bedroom Bungalow in Festac Town",
+        "description": "Spacious bungalow in Festac Town with large compound and modern amenities. Features include fitted kitchen, en-suite bedrooms, and parking space. Close to schools and markets.",
+        "type": "sale",
+        "price": 45000000,
+        "location": "Festac Town, Lagos",
+        "status": "available",
+        "verified": True,
+        "images": [
+            "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?w=800&h=600&fit=crop"
+        ]
+    },
+    {
+        "title": "1-Bedroom Apartment in Opebi",
+        "description": "Cozy apartment in Opebi perfect for young professionals. Features include modern kitchen, fitted wardrobes, and balcony. Walking distance to restaurants and shopping centers.",
+        "type": "rent",
+        "price": 1200000,
+        "location": "Opebi, Lagos",
+        "status": "available",
+        "verified": True,
+        "images": [
+            "https://images.unsplash.com/photo-1600607687644-c7171b42498b?w=800&h=600&fit=crop"
+        ]
+    },
+    {
+        "title": "4-Bedroom Duplex in Magodo Phase 2",
+        "description": "Elegant duplex in Magodo Phase 2 with modern finishes and amenities. Features include marble floors, fitted kitchen, en-suite bedrooms, and large compound. Perfect for families.",
+        "type": "sale",
+        "price": 65000000,
+        "location": "Magodo Phase 2, Lagos",
+        "status": "available",
+        "verified": True,
+        "images": [
+            "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&h=600&fit=crop"
+        ]
+    },
+    {
+        "title": "2-Bedroom Apartment in Alaba",
+        "description": "Affordable apartment in Alaba with basic amenities. Features include fitted kitchen, en-suite bedrooms, and balcony. Close to markets and transportation hubs.",
+        "type": "rent",
+        "price": 800000,
+        "location": "Alaba, Lagos",
+        "status": "available",
+        "verified": True,
+        "images": [
+            "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?w=800&h=600&fit=crop"
+        ]
+    },
+    {
+        "title": "5-Bedroom Villa in Omole Phase 1",
+        "description": "Luxury villa in Omole Phase 1 with private garden and modern amenities. Features include marble floors, fitted kitchen, en-suite bedrooms, and parking for 4 cars. Close to schools and shopping centers.",
+        "type": "sale",
+        "price": 85000000,
+        "location": "Omole Phase 1, Lagos",
+        "status": "available",
+        "verified": True,
+        "images": [
+            "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&h=600&fit=crop",
+            "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=800&h=600&fit=crop"
+        ]
+    },
+    {
+        "title": "3-Bedroom Apartment in Ogba",
+        "description": "Well-designed apartment in Ogba with modern kitchen and spacious living areas. Features include fitted wardrobes, en-suite bedrooms, and balcony. Close to major highways and shopping centers.",
+        "type": "rent",
+        "price": 1500000,
+        "location": "Ogba, Lagos",
+        "status": "available",
+        "verified": True,
+        "images": [
+            "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?w=800&h=600&fit=crop"
+        ]
+    },
+    {
+        "title": "6-Bedroom Duplex in Magodo Phase 1",
+        "description": "Spacious duplex in Magodo Phase 1 with private garden and modern amenities. Features include marble floors, fitted kitchen, en-suite bedrooms, and parking for 3 cars. Perfect for large families.",
+        "type": "sale",
+        "price": 95000000,
+        "location": "Magodo Phase 1, Lagos",
+        "status": "available",
+        "verified": True,
+        "images": [
+            "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&h=600&fit=crop"
+        ]
+    },
+    {
+        "title": "2-Bedroom Apartment in Ketu",
+        "description": "Affordable apartment in Ketu with basic amenities. Features include fitted kitchen, en-suite bedrooms, and balcony. Close to markets and transportation hubs.",
+        "type": "rent",
+        "price": 700000,
+        "location": "Ketu, Lagos",
+        "status": "available",
+        "verified": True,
+        "images": [
+            "https://images.unsplash.com/photo-1600607687644-c7171b42498b?w=800&h=600&fit=crop"
+        ]
+    },
+    {
+        "title": "4-Bedroom Bungalow in Ikorodu",
+        "description": "Spacious bungalow in Ikorodu with large compound and modern amenities. Features include fitted kitchen, en-suite bedrooms, and parking space. Close to schools and markets.",
+        "type": "sale",
+        "price": 35000000,
+        "location": "Ikorodu, Lagos",
+        "status": "available",
+        "verified": True,
+        "images": [
+            "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?w=800&h=600&fit=crop"
+        ]
+    },
+    {
+        "title": "3-Bedroom Apartment in Mushin",
+        "description": "Well-maintained apartment in Mushin with modern amenities. Features include fitted kitchen, en-suite bedrooms, and balcony. Close to markets and transportation hubs.",
+        "type": "rent",
+        "price": 900000,
+        "location": "Mushin, Lagos",
+        "status": "available",
+        "verified": True,
+        "images": [
+            "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?w=800&h=600&fit=crop"
+        ]
+    },
+    {
+        "title": "5-Bedroom Villa in Badore",
+        "description": "Luxury villa in Badore with private garden and modern amenities. Features include marble floors, fitted kitchen, en-suite bedrooms, and parking for 3 cars. Close to beaches and shopping centers.",
+        "type": "sale",
+        "price": 75000000,
+        "location": "Badore, Lagos",
+        "status": "available",
+        "verified": True,
+        "images": [
+            "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&h=600&fit=crop"
+        ]
+    },
+    {
+        "title": "2-Bedroom Apartment in Oshodi",
+        "description": "Modern apartment in Oshodi with excellent transportation access. Features include fitted kitchen, en-suite bedrooms, and balcony. Close to markets and business districts.",
+        "type": "rent",
+        "price": 1100000,
+        "location": "Oshodi, Lagos",
+        "status": "available",
+        "verified": True,
+        "images": [
+            "https://images.unsplash.com/photo-1600607687644-c7171b42498b?w=800&h=600&fit=crop"
+        ]
+    },
+    {
+        "title": "3-Bedroom Apartment in Agege",
+        "description": "Spacious apartment in Agege with modern amenities. Features include fitted kitchen, en-suite bedrooms, and balcony. Close to markets and transportation hubs.",
+        "type": "rent",
+        "price": 1000000,
+        "location": "Agege, Lagos",
+        "status": "available",
+        "verified": True,
+        "images": [
+            "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?w=800&h=600&fit=crop"
+        ]
+    },
+    {
+        "title": "4-Bedroom Duplex in Egbeda",
+        "description": "Well-designed duplex in Egbeda with modern finishes and amenities. Features include marble floors, fitted kitchen, en-suite bedrooms, and large compound. Perfect for families.",
+        "type": "sale",
+        "price": 55000000,
+        "location": "Egbeda, Lagos",
+        "status": "available",
+        "verified": True,
+        "images": [
+            "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&h=600&fit=crop"
+        ]
+    },
+    {
+        "title": "2-Bedroom Apartment in Ojodu",
+        "description": "Modern apartment in Ojodu with excellent road network access. Features include fitted kitchen, en-suite bedrooms, and balcony. Close to shopping centers and business districts.",
+        "type": "rent",
+        "price": 1300000,
+        "location": "Ojodu, Lagos",
+        "status": "available",
+        "verified": True,
+        "images": [
+            "https://images.unsplash.com/photo-1600607687644-c7171b42498b?w=800&h=600&fit=crop"
+        ]
+    },
+    {
+        "title": "6-Bedroom Mansion in Magodo Phase 2",
+        "description": "Luxury mansion in Magodo Phase 2 with private garden, infinity pool, and modern amenities. Features include smart home technology, wine cellar, and 24/7 security. Perfect for high-net-worth individuals.",
+        "type": "sale",
+        "price": 180000000,
+        "location": "Magodo Phase 2, Lagos",
+        "status": "available",
+        "verified": True,
+        "images": [
+            "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&h=600&fit=crop",
+            "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=800&h=600&fit=crop"
+        ]
+    },
+    {
+        "title": "3-Bedroom Apartment in Berger",
+        "description": "Well-designed apartment in Berger with modern kitchen and spacious living areas. Features include fitted wardrobes, en-suite bedrooms, and balcony. Close to major highways and shopping centers.",
+        "type": "rent",
+        "price": 1400000,
+        "location": "Berger, Lagos",
+        "status": "available",
+        "verified": True,
+        "images": [
+            "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?w=800&h=600&fit=crop"
+        ]
+    },
+    {
+        "title": "Commercial Warehouse in Apapa",
+        "description": "Large commercial warehouse in Apapa port area. Features include loading docks, office space, parking, and 24/7 security. Perfect for import/export businesses and logistics companies.",
+        "type": "rent",
+        "price": 2500000,
+        "location": "Apapa, Lagos",
+        "status": "available",
+        "verified": True,
+        "images": [
+            "https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&h=600&fit=crop"
+        ]
     }
 ]
 

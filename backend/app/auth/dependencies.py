@@ -15,15 +15,15 @@ def get_current_user(
     token = credentials.credentials
     payload = verify_token(token)
     
-    email = payload.get("sub")
-    if email is None:
+    user_id = payload.get("sub")
+    if user_id is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    user = db.query(User).filter(User.email == email).first()
+    user = db.query(User).filter(User.id == user_id).first()
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

@@ -22,7 +22,8 @@ class Media(Base):
     uploaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
-    property = relationship("Property", back_populates="media")
+    # Temporarily disable for local development
+    # property = relationship("Property", back_populates="media")
 
     def __repr__(self):
         return f"<Media(id={self.id}, type={self.media_type}, url={self.url})>"

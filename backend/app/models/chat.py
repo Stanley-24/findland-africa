@@ -20,11 +20,11 @@ class ChatRoom(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
-    property = relationship("Property", back_populates="chat_rooms")
-    escrow = relationship("Escrow", back_populates="chat_room")
-    creator = relationship("User", foreign_keys=[created_by], back_populates="created_chat_rooms")
-    participants = relationship("ChatParticipant", back_populates="room", cascade="all, delete-orphan")
-    messages = relationship("ChatMessage", back_populates="room", cascade="all, delete-orphan")
+    # Temporarily disable for local development
+    # property = relationship("Property", back_populates="chat_rooms")
+    # creator = relationship("User", foreign_keys=[created_by], back_populates="created_chat_rooms")
+    # participants = relationship("ChatParticipant", back_populates="room", cascade="all, delete-orphan")
+    # messages = relationship("ChatMessage", back_populates="room", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<ChatRoom(id={self.id}, type={self.room_type}, active={self.is_active})>"
@@ -41,8 +41,9 @@ class ChatParticipant(Base):
     is_active = Column(Boolean, default=True, nullable=False)
 
     # Relationships
-    room = relationship("ChatRoom", back_populates="participants")
-    user = relationship("User", back_populates="chat_participations")
+    # Temporarily disable for local development
+    # room = relationship("ChatRoom", back_populates="participants")
+    # user = relationship("User", back_populates="chat_participations")
 
     def __repr__(self):
         return f"<ChatParticipant(user_id={self.user_id}, room_id={self.room_id}, role={self.role})>"
@@ -65,9 +66,10 @@ class ChatMessage(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
-    room = relationship("ChatRoom", back_populates="messages")
-    sender = relationship("User", back_populates="chat_messages")
-    reply_to = relationship("ChatMessage", remote_side=[id])
+    # Temporarily disable for local development
+    # room = relationship("ChatRoom", back_populates="messages")
+    # sender = relationship("User", back_populates="chat_messages")
+    # reply_to = relationship("ChatMessage", remote_side=[id])
 
     def __repr__(self):
         return f"<ChatMessage(id={self.id}, type={self.message_type}, sender={self.sender_id})>"

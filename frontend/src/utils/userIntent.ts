@@ -2,7 +2,7 @@
 // Handles saving and executing user intents after authentication
 
 export interface UserIntent {
-  action: 'buy' | 'chat';
+  action: 'buy' | 'chat' | 'purchase';
   property_id: string;
   property_title: string;
   agent_name?: string;
@@ -17,7 +17,9 @@ export const saveUserIntent = (intent: UserIntent): void => {
 export const getUserIntent = (): UserIntent | null => {
   try {
     const intent = localStorage.getItem('userIntent');
-    if (!intent) return null;
+    if (!intent) {
+      return null;
+    }
     
     const parsedIntent = JSON.parse(intent) as UserIntent;
     
@@ -43,15 +45,28 @@ export const clearUserIntent = (): void => {
 export const executeUserIntent = (intent: UserIntent, navigate: (path: string) => void): void => {
   switch (intent.action) {
     case 'chat':
-      // Navigate to property detail page and trigger chat
-      navigate(`/properties/${intent.property_id}?action=chat`);
+      if (intent.property_id) {
+        // Navigate to property detail page and trigger chat
+        navigate(`/properties/${intent.property_id}?action=chat`);
+      } else {
+        // General browsing intent - go to properties page
+        navigate('/properties');
+      }
       break;
     case 'buy':
-      // Navigate to property detail page and trigger buy modal
-      navigate(`/properties/${intent.property_id}?action=buy`);
+    case 'purchase':
+      if (intent.property_id) {
+        // Navigate to property detail page and trigger buy modal
+        navigate(`/properties/${intent.property_id}?action=buy`);
+      } else {
+        // General browsing intent - go to properties page
+        navigate('/properties');
+      }
       break;
     default:
       console.warn('Unknown user intent action:', intent.action);
+      // Fallback to properties page
+      navigate('/properties');
   }
   
   // Clear the intent after execution

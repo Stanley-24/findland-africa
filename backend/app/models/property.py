@@ -38,11 +38,13 @@ class Property(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    # Relationships
-    owner = relationship("User", back_populates="properties")
-    media = relationship("Media", back_populates="property", cascade="all, delete-orphan")
-    escrow_transactions = relationship("Escrow", back_populates="property")
-    chat_rooms = relationship("ChatRoom", back_populates="property")
+    # Relationships - Temporarily disabled for local development
+    # owner = relationship("User", back_populates="properties")
+    # media = relationship("Media", back_populates="property", cascade="all, delete-orphan")
+    # escrow_transactions = relationship("Escrow", back_populates="property")
+    # chat_rooms = relationship("ChatRoom", back_populates="property")
+    # favorites = relationship("Favorite", back_populates="property")  # Disabled to avoid circular imports
+    # likes = relationship("Like", back_populates="property")  # Disabled to avoid circular imports
 
     def __repr__(self):
         return f"<Property(id={self.id}, title={self.title}, type={self.type}, price={self.price})>"
