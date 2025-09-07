@@ -5,6 +5,7 @@ from datetime import datetime
 import os
 from dotenv import load_dotenv
 import asyncio
+from contextlib import asynccontextmanager
 
 # Import our app modules
 from app.database import engine
@@ -29,23 +30,23 @@ Base.metadata.create_all(bind=engine)
 
 # Database indexes are created automatically via SQLAlchemy
 
+# --- Lifespan context manager (replaces @on_event) ---
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    await cache_service.connect()
+    print("🚀 FastAPI application started with caching enabled")
+    yield
+    # Shutdown
+    await cache_service.disconnect()
+    print("🛑 FastAPI application shutdown")
+
 app = FastAPI(
     title="FindLand Africa API",
     description="Real Estate Bridging Loan Platform - MVP",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize cache service on startup"""
-    await cache_service.connect()
-    print("🚀 FastAPI application started with caching enabled")
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Cleanup on shutdown"""
-    await cache_service.disconnect()
-    print("🛑 FastAPI application shutdown")
 
 # CORS middleware for frontend integration
 cors_origins = os.getenv("CORS_ORIGINS", "").split(",")
@@ -55,7 +56,6 @@ app.add_middleware(
     allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
-
     allow_headers=["*"],
 )
 
