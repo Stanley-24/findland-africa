@@ -1,6 +1,0 @@
-This favicon was generated using the following font:
-
-- Font Title: Battambang
-- Font Author: undefined
-- Font Source: https://fonts.gstatic.com/s/battambang/v25/uk-mEGe7raEw-HjkzZabDnWj4yxx7o8.ttf
-- Font License: undefined)
