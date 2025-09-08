@@ -22,6 +22,18 @@
       "dest": "frontend/static/$1"
     },
     {
+      "src": "/site.webmanifest",
+      "dest": "frontend/site.webmanifest"
+    },
+    {
+      "src": "/favicon-(.*).png",
+      "dest": "frontend/$0"
+    },
+    {
+      "src": "/android-chrome-(.*).png",
+      "dest": "frontend/$0"
+    },
+    {
       "src": "/(.*)",
       "dest": "frontend/index.html"
     }
@@ -29,5 +41,5 @@
   "env": {
     "REACT_APP_API_URL": "https://findland-africa.onrender.com",
     "REACT_APP_WS_URL": "wss://findland-africa.onrender.com"
-    }
+  }
 }
