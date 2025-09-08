@@ -34,8 +34,24 @@
       "dest": "/frontend/site.webmanifest"
     },
     {
-      "src": "/favicon_io/(.*)",
-      "dest": "/frontend/favicon_io/$1"
+      "src": "/apple-touch-icon.png",
+      "dest": "/frontend/favicon_io/apple-touch-icon.png"
+    },
+    {
+      "src": "/favicon-32x32.png",
+      "dest": "/frontend/favicon_io/favicon-32x32.png"
+    },
+    {
+      "src": "/favicon-16x16.png",
+      "dest": "/frontend/favicon_io/favicon-16x16.png"
+    },
+    {
+      "src": "/android-chrome-192x192.png",
+      "dest": "/frontend/favicon_io/android-chrome-192x192.png"
+    },
+    {
+      "src": "/android-chrome-512x512.png",
+      "dest": "/frontend/favicon_io/android-chrome-512x512.png"
     },
     {
       "src": "/(.*)",
