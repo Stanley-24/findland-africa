@@ -27,11 +27,11 @@
     },
     {
       "src": "/favicon-(.*).png",
-      "dest": "frontend/$0"
+      "dest": "frontend/favicon-$1.png"
     },
     {
       "src": "/android-chrome-(.*).png",
-      "dest": "frontend/$0"
+      "dest": "frontend/android-chrome-$1.png"
     },
     {
       "src": "/(.*)",
